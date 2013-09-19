@@ -371,12 +371,14 @@ class Vendedoras
 		$host_user = 'migra';
 		$database_name = 'mbinterface';
 		
-		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexión con la base de datos');
 		$exists_database = mysql_select_db($database_name);
 		
 		if ($exists_database) 
 		{			
-			$query = "  SELECT DISTINCT PG.item, PG.descripcionlocal, PG.caracteristicavalor04, PG.marcacodigo, P.monto, P.moneda, I.UnidadCodigo
+			$query = "  SELECT DISTINCT PG.item, PG.descripcionlocal, PG.caracteristicavalor04, PG.marcacodigo, P.monto, P.moneda,
+										I.UnidadCodigo, I.EspecificacionTecnica, I.EspecificacionTecnicaIngles, 
+										IF(DATEDIFF(NOW(), F.FechaActualizacion) <= 7, 1, 0) AS nuevo
 						FROM
 							wh_itemmast I,
 							wh_itemmast PG,
@@ -421,7 +423,10 @@ class Vendedoras
 										  'Precio'=>$query_row['monto'],
 										  'Moneda'=>$query_row['moneda'],
 										  'Marca'=>$query_row['marcacodigo'],
-										  'Unidad'=>$query_row['UnidadCodigo']
+										  'Unidad'=>$query_row['UnidadCodigo'],
+										  'EspecificacionTecnica'=>$query_row['EspecificacionTecnica'],
+										  'EspecificacionTecnicaIngles'=>$query_row['EspecificacionTecnicaIngles'],
+										  'nuevo'=>$query_row['nuevo'],
 									);
 				}
 				
