@@ -108,6 +108,7 @@
                         /////////////////////////[MENSAJES]////////////////////////
                         //echo $xmlIn;
                         if ($iCantMensajes == 0){
+                          
                                 $Eticket= RecuperaEticket($xmlDocument);
                                 //echo 'Eticket: ' . $Eticket;
 

@@ -54,6 +54,7 @@ function htmlRedirecFormAnt($CODTIENDA, $NUMORDEN, $MOUNT){
 }
 
 function htmlRedirecFormEticket($ETICKET){
+   
 	$html='<Html>
 	<head>
 	<title>Pagina prueba Visa</title>

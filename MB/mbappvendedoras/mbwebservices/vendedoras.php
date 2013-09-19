@@ -1,5 +1,6 @@
 <?php
-
+require('class.phpmailer.php');
+require('class.smtp.php');
 class Vendedoras
 {
     function getStatusCodeMessage($status) 
@@ -43,7 +44,10 @@ class Vendedoras
 			$exists_database = mysql_select_db($database_name);
 			if ($exists_database) 
 			{	
-				$query = "SELECT * FROM co_fiscalestablecimiento WHERE TipoTienda = '$_POST[Marca]' ";
+				$query = "	SELECT E.EstablecimientoCodigo, E.DescripcionLocal, E.DireccionComercial, E.almacendefault, E.UsuarioT, E.CentroCosto, E.TipoTienda, C.FlujodeCaja
+							FROM co_fiscalestablecimiento E, CO_ConceptoFacturacion C
+							WHERE E.EstablecimientoCodigo = CONCAT('0', C.ConceptoFacturacion) AND
+								E.TipoTienda = '$_POST[Marca]' ";
 				$query_resource = mysql_query($query);
 
 				if ($query_resource == FALSE) 
@@ -57,17 +61,17 @@ class Vendedoras
 					$temp_result = array();
 					while ($query_row = mysql_fetch_array($query_resource)) 
 					{
-                                            $temp_array[] = array
-                                            (
-                                                "Establecimientocodigo" => $query_row['EstablecimientoCodigo'], 
-                                                "Descripcionlocal" => utf8_encode($query_row['DescripcionLocal']), 
-                                                "Direccion"=> utf8_encode($query_row['DireccionComercial']), 
-                                                "Almacendefault" => $query_row['almacendefault'],
-                                                "UsuarioT" => $query_row['UsuarioT'],
-                                                "UltimoUsuario" => $query_row['UltimoUsuario'],
-                                                "CentroCosto" => $query_row['CentroCosto']
-
-                                            );
+						$temp_array[] = array
+										(
+											  "Establecimientocodigo" => $query_row['EstablecimientoCodigo'], 
+											  "Descripcionlocal" => utf8_encode($query_row['DescripcionLocal']), 
+											  "Direccion"=> utf8_encode($query_row['DireccionComercial']), 
+											  "Almacendefault" => $query_row['almacendefault'],
+											  "UsuarioT" => $query_row['UsuarioT'],
+											  "CentroCosto" => $query_row['CentroCosto'],
+											  "FlujoCaja" => $query_row['FlujodeCaja'],
+											  "TipoTienda" => $query_row['TipoTienda']
+										);
 					}
 					
 					$query_result = array("Establecimientos" => $temp_array);
@@ -251,11 +255,11 @@ class Vendedoras
 				while ($query_row = mysql_fetch_array($query_resource)) 
 				{
 					$temp_array[] = array
-                                            (
-                                            'Familia'=>$query_row['familia'],
-                                            'Descripcionlocal'=>utf8_encode($query_row['descripcionlocal']),
-                                            'Linea'=>$query_row['linea']
-                                            );
+									(
+										  'Familia'=>$query_row['familia'],
+										  'Descripcionlocal'=>utf8_encode($query_row['descripcionlocal']),
+										  'Linea'=>$query_row['linea']
+									);
 				}
 				
 				$query_result = array("Familias" => $temp_array);
@@ -410,15 +414,15 @@ class Vendedoras
 				while ($query_row = mysql_fetch_array($query_resource)) 
 				{
 					$temp_array[] = array
-                                            (
-                                            'Itempreciocodigo'=>$query_row['item'],
-                                            'Descripcionsubfamilia'=>utf8_encode($query_row['descripcionlocal']),
-                                            'Caracteristicavalor04'=>$query_row['caracteristicavalor04'],
-                                            'Precio'=>$query_row['monto'],
-                                            'Moneda'=>$query_row['moneda'],
-                                            'Marca'=>$query_row['marcacodigo'],
-                                            'Unidad'=>$query_row['UnidadCodigo']
-                                            );
+									(
+										  'Itempreciocodigo'=>$query_row['item'],
+										  'Descripcionsubfamilia'=>utf8_encode($query_row['descripcionlocal']),
+										  'Caracteristicavalor04'=>$query_row['caracteristicavalor04'],
+										  'Precio'=>$query_row['monto'],
+										  'Moneda'=>$query_row['moneda'],
+										  'Marca'=>$query_row['marcacodigo'],
+										  'Unidad'=>$query_row['UnidadCodigo']
+									);
 				}
 				
 				$query_result = array("Genericos" => $temp_array);
@@ -591,7 +595,7 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{			
-			$query = "  SELECT E.descripcionlocal, (A.stockactual - A.stockcomprometido)as stockdisponible
+			$query = "  SELECT E.descripcionlocal, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
 						FROM 
 							wh_itemmast I,
 							wh_itemalmacenlote A,
@@ -649,7 +653,7 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{			
-			$query = "  SELECT I.tallacodigo, I.color, (A.stockactual - A.stockcomprometido)as stockdisponible
+			$query = "  SELECT I.tallacodigo, I.color, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
 						FROM 
 							wh_itemmast I,
 							wh_itemalmacenlote A,
@@ -707,7 +711,7 @@ class Vendedoras
 		$exists_database = mysql_select_db($database_name);
 		
 		if ($exists_database) 
-		{			
+		{			/*
 			$query = "  SELECT I.tallacodigo, I.color, (A.stockactual - A.stockcomprometido)as stockdisponible
 						FROM
 							wh_itemmast I,
@@ -716,6 +720,14 @@ class Vendedoras
 						WHERE
 							I.item = A.item AND
 							T.almacencodigo = A.almacencodigo AND
+							I.itempreciocodigo = '$_POST[Item]'";*/
+			$query = "  SELECT I.tallacodigo, I.color, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
+						FROM
+							wh_itemmast I,
+							wh_itemalmacenlote A
+						WHERE
+							I.item = A.item AND
+							A.almacencodigo = '0001' AND
 							I.itempreciocodigo = '$_POST[Item]'";
 								
 			$query_resource = mysql_query($query);
@@ -1104,7 +1116,11 @@ class Vendedoras
 	function registrarReserva()
 	{
 		$correlativo = $this->getCorrelativo();
-		$host_name = '192.168.1.193';
+//		$host_name = '54.232.196.181';
+//		$host_password = '123456';
+//		$host_user = 'root';
+//		$database_name = 'mbinterface';
+                $host_name = '192.168.1.193';
 		$host_password = 'migramb';
 		$host_user = 'migra';
 		$database_name = 'mbinterface';
@@ -1148,7 +1164,9 @@ class Vendedoras
                                 FechaVencimiento,
                                 MonedaDocumento,
                                 PreparadoPor,
+                                AprobadoPor,
                                 FechaPreparacion,
+                                FechaAprobacion,
                                 ImpresionPendienteFlag,
                                 DocumentoMoraFlag,
                                 ContabilizacionPendienteFlag,
@@ -1165,7 +1183,20 @@ class Vendedoras
                                 MontoRedondeo,
                                 MontoTotal,
                                 MontoPagado,
-                                TipodeCambio
+                                TipodeCambio,
+                                MontoAdelantoSaldo,
+                                Sucursal,
+                                TipoCanjeFactura,
+                                LetraDescuentoIntereses,
+                                LetraDescuentoVoucherFlag,
+                                APTransferidoFlag,
+                                CobranzaDudosaEstado,
+                                DocumentosinDespachoFlag,
+                                puntoscanjeados,
+                                puntosganados,
+                                valorunitariopunto,
+                                GiftCorporativoSaldoFlag,
+                                LetraCarteraFlag
                                 )
 
                                 VALUES (
@@ -1191,6 +1222,8 @@ class Vendedoras
                                         NOW(),
                                         '$monedaDocumento',
                                         '$_POST[CodigoVendedor]',
+                                        '$_POST[CodigoVendedor]',
+                                        NOW(),
                                         NOW(),
                                         'S',
                                         'N',
@@ -1208,10 +1241,23 @@ class Vendedoras
                                         '0',
                                         '$_POST[Monto]',
                                         '0',
-                                        '$tipoCambio'
+                                        '$tipoCambio',
+                                        '0.00',
+                                        '$_POST[TipoTienda]',
+                                        'NO',
+                                        '0.00',
+                                        'N',
+                                        'N',
+                                        'NO',
+                                        'N',
+                                        0,
+                                        0,
+                                        20,
+                                        'X',
+                                        'S'
 
                                         )";
-
+				
 				$query_resource = mysql_query($query);
 				if ($query_resource == FALSE)
 				{
@@ -1219,9 +1265,15 @@ class Vendedoras
 					$this->sendResponse(500,"Error en el query.");	
 				}
 				else 
-				{
-					$query_result = array("reserva" => $correlativo);
+				{ 
+//                                    $msjMail=$this->sendMail($_POST['mail']);
+					$query_result = array("reserva" => $correlativo,'test'=>'ok','msjMail'=>$msjMail);
+                                        
 					mysql_close($database_conn);
+//                                        mail('caffeinated@example.com', 'Mi título', $mensaje);
+                
+//                                        mail('marrselo@gmail.com','testing',"veamos");
+                                       
 					$this->sendResponse(200, json_encode($query_result));
 				}
 			}
@@ -1524,7 +1576,7 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{
-			$query = " SELECT FactorCompra as texto1
+			$query = " SELECT FactorVenta as tipoCambio
 							from TipoCambioMast 
 							where FechaCambio = CONCAT(CURDATE(),' 00:00:00') ";
 								
@@ -1540,7 +1592,7 @@ class Vendedoras
 				$tipocambio = 0;
 				while ($query_row = mysql_fetch_array($query_resource))
 				{
-					$tipocambio = $query_row['texto1'];
+					$tipocambio = $query_row['tipoCambio'];
 				}
 								
 				//mysql_close($database_conn);
@@ -1559,8 +1611,12 @@ class Vendedoras
 	
 	function registrarReservaItem()
 	{
-		$codigoEstablecimiento1 = $this->getCodigoEstablecimiento($_POST['codigoEstablecimiento']);
-		$host_name = '192.168.1.193';
+		//$codigoEstablecimiento1 = $this->getCodigoEstablecimiento($_POST['codigoEstablecimiento']);
+//		$host_name = '54.232.196.181';
+//		$host_password = '123456';
+//		$host_user = 'root';
+//		$database_name = 'mbinterface';
+            $host_name = '192.168.1.193';
 		$host_password = 'migramb';
 		$host_user = 'migra';
 		$database_name = 'mbinterface';
@@ -1571,59 +1627,79 @@ class Vendedoras
 		if ($exists_database) 
 		{	
 			$query = "  INSERT INTO co_documentodetalle (
-													TipoDocumento,
-													NumeroDocumento,
-													Linea,
-													ItemCodigo,
-													CantidadPedida,
-													PrecioUnitarioOriginal,
-													PrecioUnitario,
-													PrecioUnitarioFinal,
-													Monto,
-													MontoFinal,
-													DocumentoRelacLinea,
-													Estado,
-													CentroCosto,
-													IGVExoneradoFlag,
-													CompaniaSocio,
-													AlmacenCodigo,
-													TipoDetalle,
-													Condicion,
-													Descripcion,
-													UnidadCodigo,
-													PorcentajeDescuento01,
-													PorcentajeDescuento02,
-													PorcentajeDescuento03,
-													PrecioUnitarioDoble
-													
-													)													
-													VALUES (
-														'PE',
-														'$_POST[NumeroDocumento]',
-														'$_POST[Linea]',
-														'$_POST[ItemCodigo]',
-														'$_POST[CantidadPedida]',
-														'$_POST[PrecioUnitarioOriginal]',
-														'$_POST[PrecioUnitario]',
-														'$_POST[PrecioUnitarioFinal]',
-														'$_POST[Monto]',
-														'$_POST[MontoFinal]',
-														'$_POST[CodigoVendedor]',
-														'PR',
-														'$_POST[CentroCosto]',
-														'N',
-														'01000000',
-														'$codigoEstablecimiento1',
-														'I',
-														'0',
-														'$_POST[Descripcion]',
-														'$_POST[Unidad]',
-														'$_POST[Descuento]',
-														'0',
-														'$_POST[Descuento]',
-														'$_POST[PrecioUnitarioFinal]'
-														
-														)";
+                    TipoDocumento,
+                    NumeroDocumento,
+                    Linea,
+                    ItemCodigo,
+                    CantidadPedida,
+                    CantidadEntregada,
+                    CantidadVentaPerdida,
+                    PrecioUnitarioOriginal,
+                    PrecioUnitario,
+                    PrecioUnitarioFinal,
+                    PrecioModificadoFlag,
+                    Monto,
+                    MontoFinal,
+                    DocumentoRelacLinea,
+                    Estado,
+                    CentroCosto,
+                    IGVExoneradoFlag,
+                    CompaniaSocio,
+                    AlmacenCodigo,
+                    TipoDetalle,
+                    Condicion,
+                    Descripcion,
+                    UnidadCodigo,
+                    PorcentajeDescuento01,
+                    PorcentajeDescuento02,
+                    PorcentajeDescuento03,
+                    PrecioUnitarioDoble,
+                    TransferenciaGratuitaFlag,
+                    UltimaFechaModif,
+                    UltimoUsuario,
+                    Sucursal,
+                    FlujodeCaja,
+                    PrecioUnitarioGratuito,
+                    DespachoUnidadEquivalenteFlag
+
+                    )													
+                    VALUES (
+                            'PE',
+                            '$_POST[NumeroDocumento]',
+                            '$_POST[Linea]',
+                            '$_POST[ItemCodigo]',
+                            '$_POST[CantidadPedida]',
+                            '$_POST[CantidadPedida]',
+                            '0.00',
+                            '$_POST[PrecioUnitarioOriginal]',
+                            '$_POST[PrecioUnitario]',
+                            '$_POST[PrecioUnitarioFinal]',
+                            'N',
+                            '$_POST[Monto]',
+                            '$_POST[MontoFinal]',
+                            '$_POST[CodigoVendedor]',
+                            'PR',
+                            '$_POST[CentroCosto]',
+                            'N',
+                            '01000000',
+                            '$_POST[CodigoAlmacen]',
+                            'I',
+                            '0',
+                            '$_POST[Descripcion]',
+                            '$_POST[Unidad]',
+                            '$_POST[Descuento]',
+                            '0',
+                            '$_POST[Descuento]',
+                            '$_POST[PrecioUnitarioFinal]',
+                            'N',
+                            NOW(),
+                            '$_POST[UltimoUsuario]',
+                            '$_POST[Sucursal]',
+                            '$_POST[FlujoCaja]',
+                            '0.000000',
+                            'N'
+
+                            )";
 								
 			$query_resource = mysql_query($query);
 				if ($query_resource == FALSE) 
@@ -1918,9 +1994,9 @@ class Vendedoras
 			$this->sendResponse(500, "No existe la base de datos.");
 		}
 	}
-	
-        function obtenerArticulosCantidad(){
-            $host_name = '192.168.1.193';
+
+	function getUbigeos() {
+		$host_name = '192.168.1.193';
 		$host_password = 'migramb';
 		$host_user = 'migra';
 		$database_name = 'mbinterface';
@@ -1930,83 +2006,176 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{
-			$query = "SELECT V.almacendefault as codigo
-						FROM
-							co_fiscalestablecimiento V					
-						WHERE
-							V.EstablecimientoCodigo = '$val'";
-								
-			$query_resource = mysql_query($query);
-
-			if ($query_resource == FALSE) 
-			{			
+			$query = "SELECT * FROM UbicacionGeografica WHERE Estado = 'A'";
+			$queryResult = mysql_query($query);
+			if ($queryResult == FALSE) {
 				mysql_close($database_conn);
-				return null;	
+				$this->sendResponse(500, "Error en el query.");
+			} else {
+				if (mysql_num_rows($queryResult) <= 0) {
+					mysql_close($database_conn);
+					$this->sendResponse(204, "");
+				} else {
+					$resultArray = array();
+					while ($row = mysql_fetch_array($queryResult)) {
+						$resultArray[] = array(	'departamento' => substr($row['Ubigeo'], 0, 2),
+												'provincia' => substr($row['Ubigeo'], 2, 2),
+												'codigoPostal' => substr($row['Ubigeo'], 4, 2),
+												'descripcion' => $row['Descripcion']);
+					}
+					mysql_close($database_conn);
+					$this->sendResponse(200, json_encode($resultArray));
+				}				
 			}
-			else 
-			{
-				$codigoestablec = null;
-				while ($query_row = mysql_fetch_array($query_resource))
-				{
-					$codigoestablec = $query_row['codigo'];
-				}
-								
-				mysql_close($database_conn);
-				return $codigoestablec;
-			}			
-		
 		}
 		else 
 		{
 			$mysql_close($database_conn);
-			return null;	
-		}	
+			$this->sendResponse(500, "No existe la base de datos.");
+		}
+	}
+
+	function registrarDirecionEntrega() {
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+		
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		if ($exists_database) 
+		{
+			$query = "	INSERT INTO DireccionEntrega
+						VALUES (
+								'$_POST[CodigoCliente]',
+								'$_POST[NumeroPedido]',
+								'$_POST[Documento]',
+								'$_POST[DireccionEntrega]',
+								'$_POST[TipoDocumentoPago]',
+								'$_POST[Departamento]',
+								'$_POST[Provincia]',
+								'$_POST[CodigoPostal]',
+								'$_POST[CorreoElectronico]',
+								NOW()
+								)
+					";
+			$queryResult = mysql_query($query);
+			if ($queryResult == FALSE) {
+				$result = array('registro' => '0');
+				mysql_close($database_conn);
+                                $this->sendResponse(500, json_encode($result));
+				
+			} else {
+                                $detail=  json_decode($_POST['detail']);                                  
+                                $msj=$this->sendMail($_POST['email'],$_POST['usuario'],$detail
+                                    ,$_POST['DireccionEntrega'],$_POST['NumeroPedido'],
+                                    $_POST['TipoDocumentoPago']);
+				$result = array('registro' => '1','msj'=>$msj);
+				mysql_close($database_conn);
+				$this->sendResponse(200, json_encode($result));							
+			}
+		}
+		$this->sendResponse(500, "La base de datos no existe.");
+	}
+	
+        function sendMail($email,$user,$objeto,$direccion,$nroPedido,$tipoDocumento){
+                   $mail = new PHPMailer();
+                   $documento=($tipoDocumento=='TF')?' Factura' : 'Boleta';
+                    $body =  '
+                        <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+                        <html xmlns="http://www.w3.org/1999/xhtml">
+                        <head>
+                        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                        <title>Untitled Document</title>
+
+                        </head>
+
+                        <body>
+                        Saludos cordiales sr(a): '.$user.'
+                        <p>Gracias por realizar su reserva en Michelle Belau:</p>                        
+                        <p>Direccion de entrega:'.$direccion.'</p>
+                        <p>Nro de pedido:'.$nroPedido.'</p>
+                        <p>Documento solicitado:'.$documento.'</p>
+                        <p>&nbsp;</p>
+                          <table width="720" height="88" border="1" cellpadding="0" cellspacing="0">
+                          <tr bgcolor="#999999">
+                            <th scope="col">Nro</th>
+                            <th scope="col">Cod.</th>
+                            <th scope="col">Descripcion</th>
+                            <th scope="col" align="center">Cantidad</th>
+                            <th scope="col" align="center">Precio</th>
+                            <th scope="col" align="center">Descto %</th>
+                            <th scope="col" align="center">Subtotal</th>
+                          </tr>';
+                    $i=0;
+                      $precioTotal=0;
+                      foreach($objeto as $value){
+                      $precioCDcto=0 ;
+                      $precioCDcto=$value->preciototal - ($value->preciototal * ($value->descuento/100));
+                      $precioTotal=$precioTotal+$precioCDcto;   
+                      
+                  $body.='  <tr>
+                            <td>'.$i=$i+1 .'</td>
+                            <td>'.$value->cod.'</td>
+                            <td>'.$value->descripcion.'</td>
+                            <td  align="center">'.$value->cantidad.'</td>
+                            <td  align="center">S/. '.number_format($value->precio,2).'</td>
+                            <td  align="center">% '.$value->descuento.'</td>   
+                            <td  align="center">S/. '.number_format($precioCDcto,2).'</td>                          
+                          </tr>';
+                          
+                      }
+                
+                 $body.='
+                          <tr>
+                            <td colspan="6" align="right" >Total: &nbsp;&nbsp;</td>
+                            <td  align="center">S/. '.number_format( $precioTotal ,2).' </td>
+                          </tr>
+                        </table>
+                        </body>
+                        </html>';
+                    $mail->IsSMTP(); 
+                    // la dirección del servidor, p. ej.: smtp.servidor.com
+                    $mail->Host = "mail.michellebelau.com";
+
+                    // dirección remitente, p. ej.: no-responder@miempresa.com
+                    $mail->From = "pedidocliente@michellebelau.com";
+
+                    // nombre remitente, p. ej.: "Servicio de envío automático"
+                    $mail->FromName = "testing";
+
+                    // asunto y cuerpo alternativo del mensaje
+                    $mail->Subject = "Nueva Reserva";
+
+                    // si el cuerpo del mensaje es HTML
+                    $mail->MsgHTML($body);
+
+                    // podemos hacer varios AddAdress
+                    $mail->AddAddress($email,"Gracias por reservar en Michelle Belau");
+                    $mail->AddAddress("jcarbajal@michellebelau.com","Atencion al usuario");
+                    // si el SMTP necesita autenticación
+                    $mail->SMTPAuth = true;
+
+                    // credenciales usuario
+                    $mail->Username = "pedidocliente@michellebelau.com";
+                    $mail->Password = "mb1509cliente"; 
+
+                    if(!$mail->Send()) {
+                        $arrayResult['msjEmail']= "Error enviando: " . $mail->ErrorInfo;
+                    } else {
+                        $arrayResult['msjEmail']= "¡¡Enviado!!";
+                    }
+                    return $arrayResult;
         }
         
-        function obtenerArticulosTalla()
+        function sendMailMichelle()
         {
-            $host_name = '192.168.1.193';
-		$host_password = 'migramb';
-		$host_user = 'migra';
-		$database_name = 'mbinterface';
-		
-		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
-		$exists_database = mysql_select_db($database_name);
-		
-		if ($exists_database) 
-		{
-			$query = "SELECT V.almacendefault as codigo
-						FROM
-							co_fiscalestablecimiento V					
-						WHERE
-							V.EstablecimientoCodigo = '$val'";
-								
-			$query_resource = mysql_query($query);
-
-			if ($query_resource == FALSE) 
-			{			
-				mysql_close($database_conn);
-				return null;	
-			}
-			else 
-			{
-				$codigoestablec = null;
-				while ($query_row = mysql_fetch_array($query_resource))
-				{
-					$codigoestablec = $query_row['codigo'];
-				}
-								
-				mysql_close($database_conn);
-				return $codigoestablec;
-			}			
-		
-		}
-		else 
-		{
-			$mysql_close($database_conn);
-			return null;	
-		}	
+            $detail=  json_decode($_POST['detail']);
+            $msj=$this->sendMail($_POST['email'],$_POST['usuario'],$detail);
+            $this->sendResponse(200, json_encode(array('msj'=>$msj)));
         }
+        
+        
 }
 
 $vendedora = new vendedoras();
@@ -2086,12 +2255,15 @@ if( isset($_POST['metodo']))
 	if( strcmp($nombreMetodo, "ELIMINARRESERVA") == 0 ){
  		$vendedora-> eliminarReserva();
  	}
-        if( strcmp($nombreMetodo, "OBTENERARTICULOSCANTIDAD") == 0 ){
- 		$vendedora-> obtenerArticulosCantidad();
- 	}if( strcmp($nombreMetodo, "OBTENERARTICULOTALLA") == 0 ){
- 		$vendedora-> obtenerArticulosTalla();
+ 	if (strcmp($nombreMetodo, "OBTENERUBIGEOS") == 0) {
+ 		$vendedora->getUbigeos();
  	}
-	
+	if (strcmp($nombreMetodo, "REGISTRARDIRECCIONENTREGA") == 0) {
+ 		$vendedora->registrarDirecionEntrega();
+ 	}
+        if (strcmp($nombreMetodo, "sendMail") == 0) {
+ 		$vendedora->sendMailMichelle();
+ 	}
 }
 	
 ?>

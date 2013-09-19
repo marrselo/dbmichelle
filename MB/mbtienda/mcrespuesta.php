@@ -199,7 +199,7 @@
                 if( $_POST['O1'] == 'A' ) {
                     $keyMerchant = "n9yA9r4SedrUmuSeh4wRejEpAc7aHeCE";
                     
-                    $HashPuntoWeb = urldecode(O20);
+                    $HashPuntoWeb = urldecode('O20');
 
                     $arrDatos[] = $_POST['O1']; //Resultado
                     $arrDatos[] = $_POST['O2']; //Cod Autorizacion

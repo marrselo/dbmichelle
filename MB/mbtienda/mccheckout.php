@@ -8,7 +8,7 @@
     
     $keyMerchant = "";
     $arrDatos = "";
-    
+   
     function hmacsha1($key, $data, $hex = false) {
         $blocksize = 64;
         $hashfunc = 'sha1';
