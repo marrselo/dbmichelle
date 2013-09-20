@@ -378,7 +378,7 @@ class Vendedoras
 		{			
 			$query = "  SELECT DISTINCT PG.item, PG.descripcionlocal, PG.caracteristicavalor04, PG.marcacodigo, P.monto, P.moneda,
 										I.UnidadCodigo, I.EspecificacionTecnica, I.EspecificacionTecnicaIngles, 
-										IF(DATEDIFF(NOW(), F.FechaActualizacion) <= 7, 1, 0) AS nuevo
+										MAX(IF(DATEDIFF(NOW(), F.FechaActualizacion) <= 7, 1, 0)) AS nuevo
 						FROM
 							wh_itemmast I,
 							wh_itemmast PG,
@@ -392,16 +392,17 @@ class Vendedoras
 						AND P.cliente = '$$'
 						AND P.periodovalidez = '$$'
 						AND PG.item = P.itemcodigo
-						AND I.familia = '$_POST[Familia]'
-						AND I.linea = '$_POST[Linea]'
-						AND C.ColeccionID = '$_POST[ColeccionID]'
+						AND I.familia = '009'
+						AND I.linea = '01'
+						AND C.ColeccionID = '2'
 						AND (
 							C.Temporada1 = I.caracteristicavalor04 OR
 							C.Temporada2 = I.caracteristicavalor04 OR
 							C.Temporada3 = I.caracteristicavalor04 OR
 							C.Temporada4 = I.caracteristicavalor04 OR
 							C.Temporada5 = I.caracteristicavalor04						
-							)";
+							)
+						GROUP BY PG.Item";
 			$query_resource = mysql_query($query);
 
 			if ($query_resource == FALSE) 
