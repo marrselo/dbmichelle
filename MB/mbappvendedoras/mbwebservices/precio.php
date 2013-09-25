@@ -113,9 +113,14 @@ class Precio
 		$descuentos[] = $this->DescuentoConceptoFacturacionLineaFamilia();
 		$descuentos[] = $this->DescuentoConceptoFacturacionLinea();
 		
-		$mayorDescuento = array('Descuento' => max($descuentos)."");
-		
-		$this->sendResponse(200, json_encode($mayorDescuento));
+		$mayorDescuento = max($descuentos);
+		return $mayorDescuento."";
+	}
+
+	public function postDescuento(){
+		$descuento = $this->getDescuento();
+		$array = array('Descuento' => $descuento);
+		$this->sendResponse(200, json_encode($array));
 	}
 	
 	//-------------------------------------------------------------------------
@@ -902,7 +907,7 @@ if( isset($_POST['metodo']))
 	$nombreMetodo = $_POST['metodo'];
 	if( strcmp($nombreMetodo, "DESCUENTO") == 0 )
 	{
- 		$precio-> getDescuento();
+ 		$precio-> postDescuento();
  	}
 	if( strcmp($nombreMetodo, "FORMADEPAGO") == 0 )
 	{

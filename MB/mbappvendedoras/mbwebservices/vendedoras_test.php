@@ -1120,13 +1120,9 @@ class Vendedoras
 	function registrarReserva()
 	{
 		$correlativo = $this->getCorrelativo();
-//		$host_name = '54.232.196.181';
-//		$host_password = '123456';
-//		$host_user = 'root';
-//		$database_name = 'mbinterface';
-                $host_name = '192.168.1.193';
-		$host_password = 'migramb';
-		$host_user = 'migra';
+		$host_name = '54.232.196.181';
+		$host_password = '123456';
+		$host_user = 'root';
 		$database_name = 'mbinterface';
 		
 		$tipoFacturacion = $this->getTipoFacturacion();
@@ -1615,14 +1611,9 @@ class Vendedoras
 	
 	function registrarReservaItem()
 	{
-		//$codigoEstablecimiento1 = $this->getCodigoEstablecimiento($_POST['codigoEstablecimiento']);
-//		$host_name = '54.232.196.181';
-//		$host_password = '123456';
-//		$host_user = 'root';
-//		$database_name = 'mbinterface';
-            $host_name = '192.168.1.193';
-		$host_password = 'migramb';
-		$host_user = 'migra';
+		$host_name = '54.232.196.181';
+		$host_password = '123456';
+		$host_user = 'root';
 		$database_name = 'mbinterface';
 		
 		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
@@ -1731,9 +1722,9 @@ class Vendedoras
 
 	function registrarReservaItemClientas()
 	{
-		$host_name = '192.168.1.193';
-		$host_password = 'migramb';
-		$host_user = 'migra';
+		$host_name = '54.232.196.181';
+		$host_password = '123456';
+		$host_user = 'root';
 		$database_name = 'mbinterface';
 		
 		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
@@ -1955,9 +1946,9 @@ class Vendedoras
 	function eliminarReserva()
 	{
 		
-		$host_name = '192.168.1.193';
-		$host_password = 'migramb';
-		$host_user = 'migra';
+		$host_name = '54.232.196.181';
+		$host_password = '123456';
+		$host_user = 'root';
 		$database_name = 'mbinterface';
 		
 		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
@@ -2040,9 +2031,9 @@ class Vendedoras
 	}
 
 	function registrarDirecionEntrega() {
-		$host_name = '192.168.1.193';
-		$host_password = 'migramb';
-		$host_user = 'migra';
+		$host_name = '54.232.196.181';
+		$host_password = '123456';
+		$host_user = 'root';
 		$database_name = 'mbinterface';
 		
 		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
@@ -2155,8 +2146,7 @@ class Vendedoras
                     $mail->MsgHTML($body);
 
                     // podemos hacer varios AddAdress
-                    $mail->AddAddress($email,"Gracias por reservar en Michelle Belau");
-                    $mail->AddAddress("jcarbajal@michellebelau.com","Atencion al usuario");
+                    $mail->AddAddress("csarynga@gmail.com","Gracias por reservar en Michelle Belau");
                     // si el SMTP necesita autenticación
                     $mail->SMTPAuth = true;
 
