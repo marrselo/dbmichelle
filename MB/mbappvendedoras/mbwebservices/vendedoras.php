@@ -2100,6 +2100,7 @@ class Vendedoras
                         <p>Direccion de entrega:'.$direccion.'</p>
                         <p>Nro de pedido:'.$nroPedido.'</p>
                         <p>Documento solicitado:'.$documento.'</p>
+                        <p>Fecha y hora:'.date('d-m-Y H:i:s').'</p>
                         <p>&nbsp;</p>
                           <table width="720" height="88" border="1" cellpadding="0" cellspacing="0">
                           <tr bgcolor="#999999">
