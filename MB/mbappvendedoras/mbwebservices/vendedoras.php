@@ -444,6 +444,85 @@ class Vendedoras
 			$this->sendResponse(500, "No existe la base de datos.");
 		}		
 	}
+
+	function ObtenerProductosGenericosPorCliente()
+	{
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+		
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexión con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		
+		if ($exists_database) 
+		{			
+			$query = "  SELECT DISTINCT PG.item, PG.descripcionlocal, PG.caracteristicavalor04, PG.marcacodigo, P.monto, P.moneda,
+										I.UnidadCodigo, I.EspecificacionTecnica, I.EspecificacionTecnicaIngles, 
+										MAX(IF(DATEDIFF(NOW(), F.FechaActualizacion) <= 7, 1, 0)) AS nuevo
+						FROM
+							wh_itemmast I,
+							wh_itemmast PG,
+							coleccion C,
+							co_precio P,
+							wh_ItemFoto F
+						WHERE
+							PG.item = I.itempreciocodigo
+						AND I.item = F.item
+						AND P.tiporegistro = 'P'
+						AND P.cliente = '$_POST[codigoCliente]'
+						AND P.periodovalidez = '$$'
+						AND PG.item = P.itemcodigo
+						AND I.familia = '$_POST[Familia]'
+						AND I.linea = '$_POST[Linea]'
+						AND C.ColeccionID = '$_POST[ColeccionID]'
+						AND (
+							C.Temporada1 = I.caracteristicavalor04 OR
+							C.Temporada2 = I.caracteristicavalor04 OR
+							C.Temporada3 = I.caracteristicavalor04 OR
+							C.Temporada4 = I.caracteristicavalor04 OR
+							C.Temporada5 = I.caracteristicavalor04						
+							)
+						GROUP BY PG.Item";
+			$query_resource = mysql_query($query);
+
+			if ($query_resource == FALSE) 
+			{
+				$query_result = array("Genericos" => array());
+				mysql_close($database_conn);
+				$this->sendResponse(500, "Error en el query.");	
+			} 
+			else 
+			{
+				$temp_result = array();
+				while ($query_row = mysql_fetch_array($query_resource)) 
+				{
+					$temp_array[] = array
+									(
+										  'Itempreciocodigo'=>$query_row['item'],
+										  'Descripcionsubfamilia'=>utf8_encode($query_row['descripcionlocal']),
+										  'Caracteristicavalor04'=>$query_row['caracteristicavalor04'],
+										  'Precio'=>$query_row['monto'],
+										  'Moneda'=>$query_row['moneda'],
+										  'Marca'=>$query_row['marcacodigo'],
+										  'Unidad'=>$query_row['UnidadCodigo'],
+										  'EspecificacionTecnica'=>$query_row['EspecificacionTecnica'],
+										  'EspecificacionTecnicaIngles'=>$query_row['EspecificacionTecnicaIngles'],
+										  'nuevo'=>$query_row['nuevo'],
+									);
+				}
+				
+				$query_result = array("Genericos" => $temp_array);
+				mysql_close($database_conn);
+				$this->sendResponse(200, json_encode($query_result));
+			}			
+		} 
+		else 
+		{
+			$mysql_close($database_conn);
+			$this->sendResponse(500, "No existe la base de datos.");
+		}		
+	}
 	
 	function ObtenerProductosEspecificos()
 	{
@@ -2059,7 +2138,7 @@ class Vendedoras
 								'$_POST[Departamento]',
 								'$_POST[Provincia]',
 								'$_POST[CodigoPostal]',
-								'$_POST[CorreoElectronico]',
+								'$_POST[email]',
 								NOW()
 								)
 					";
@@ -2071,9 +2150,14 @@ class Vendedoras
 				
 			} else {
                                 $detail=  json_decode($_POST['detail']);                                  
-                                $msj=$this->sendMail($_POST['email'],$_POST['usuario'],$detail
-                                    ,$_POST['DireccionEntrega'],$_POST['NumeroPedido'],
-                                    $_POST['TipoDocumentoPago']);
+                                $msj=$this->sendMail($_POST['email'],
+                                					$_POST['usuario'],$detail,
+				                                    $_POST['DireccionEntrega'],
+				                                    $_POST['departamentoNombre'],
+				                                    $_POST['provinciaNombre'],
+				                                    $_POST['distritoNombre'],
+				                                    $_POST['NumeroPedido'],
+				                                    $_POST['TipoDocumentoPago']);
 				$result = array('registro' => '1','msj'=>$msj);
 				mysql_close($database_conn);
 				$this->sendResponse(200, json_encode($result));							
@@ -2082,7 +2166,7 @@ class Vendedoras
 		$this->sendResponse(500, "La base de datos no existe.");
 	}
 	
-        function sendMail($email,$user,$objeto,$direccion,$nroPedido,$tipoDocumento){
+        function sendMail($email,$user,$objeto,$direccion,$departamento, $provincia, $distrito, $nroPedido,$tipoDocumento){
                    $mail = new PHPMailer();
                    $documento=($tipoDocumento=='TF')?' Factura' : 'Boleta';
                     $body =  '
@@ -2097,7 +2181,7 @@ class Vendedoras
                         <body>
                         Saludos cordiales sr(a): '.$user.'
                         <p>Gracias por realizar su reserva en Michelle Belau:</p>                        
-                        <p>Direccion de entrega:'.$direccion.'</p>
+                        <p>Direccion de entrega:'.$direccion.' - '.$departamento.', '.$provincia.', '.$distrito.'</p>
                         <p>Nro de pedido:'.$nroPedido.'</p>
                         <p>Documento solicitado:'.$documento.'</p>
                         <p>Fecha y hora:'.date('d-m-Y H:i:s').'</p>
@@ -2125,7 +2209,7 @@ class Vendedoras
                             <td>'.$value->descripcion.'</td>
                             <td  align="center">'.$value->cantidad.'</td>
                             <td  align="center">S/. '.number_format($value->precio,2).'</td>
-                            <td  align="center">% '.$value->descuento.'</td>   
+                            <td  align="center">'.$value->descuento.'%'.'</td>  
                             <td  align="center">S/. '.number_format($precioCDcto,2).'</td>                          
                           </tr>';
                           
@@ -2150,7 +2234,7 @@ class Vendedoras
                     $mail->FromName = "testing";
 
                     // asunto y cuerpo alternativo del mensaje
-                    $mail->Subject = "Nueva Reserva";
+                    $mail->Subject = "Nueva Reserva Nro. ".$nroPedido;
 
                     // si el cuerpo del mensaje es HTML
                     $mail->MsgHTML($body);
@@ -2176,7 +2260,14 @@ class Vendedoras
         function sendMailMichelle()
         {
             $detail=  json_decode($_POST['detail']);
-            $msj=$this->sendMail($_POST['email'],$_POST['usuario'],$detail);
+           $msj=$this->sendMail($_POST['email'],
+            						$_POST['usuario'],$detail,
+                                    $_POST['DireccionEntrega'],
+                                    $_POST['departamentoNombre'],
+                                    $_POST['provinciaNombre'],
+                                    $_POST['distritoNombre'],
+                                    $_POST['NumeroPedido'],
+                                    $_POST['TipoDocumentoPago']);
             $this->sendResponse(200, json_encode(array('msj'=>$msj)));
         }
         
@@ -2208,6 +2299,9 @@ if( isset($_POST['metodo']))
  	}
  	if( strcmp($nombreMetodo, "OBTENERPRODUCTOSGENERICOS") == 0 ){
  		$vendedora-> ObtenerProductosGenericos();
+ 	}
+ 	if( strcmp($nombreMetodo, "OBTENERPRODUCTOSGENERICOSPORCLIENTE") == 0 ){
+ 		$vendedora-> ObtenerProductosGenericosPorCliente();
  	}
 	if( strcmp($nombreMetodo, "OBTENERPRODUCTOSESPECIFICOS") == 0 ){
  		$vendedora-> ObtenerProductosEspecificos();
