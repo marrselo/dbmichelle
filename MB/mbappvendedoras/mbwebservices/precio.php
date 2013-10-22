@@ -174,6 +174,7 @@ class Precio
 						  FROM co_precio D
 						  WHERE D.tiporegistro = 'D'
 						  AND D.periodovalidez <> '$$'
+						  AND D.FormadePago='$$'
 						  AND LEFT(D.periodovalidez,10)<= CURDATE()
 						  AND SUBSTR(D.periodovalidez,20,10) >= CURDATE()
 						  AND (

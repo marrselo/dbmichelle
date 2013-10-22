@@ -100,10 +100,9 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{			
-			$query = "	SELECT distinct G.grupolinea, G.descripcionlocal
-						FROM wh_claselinea L, wh_clasegrupolinea G
-						WHERE L.grupolinea = G.grupolinea
-						AND L.grupolinea like '0%'";
+			$query = "	SELECT distinct G.linea AS grupolinea, G.descripcionlocal
+						FROM wh_claselinea L, wh_equivalLinea G
+						WHERE L.grupolinea = G.linea";
 			$query_resource = mysql_query($query);
 
 			if ($query_resource == FALSE) 
@@ -1262,9 +1261,15 @@ class Vendedoras
 		$tipoFacturacion = $this->getTipoFacturacion();
 		$tipoVenta = $this->getTipoVenta();
 		$formaPago = $this->getFormaDePago();
-		$monedaDocumento = $this->getMonedaDocumento();
+		
 		$unidadNegocio = $this->getUnidadNegocio();
 		$tipoCambio = $this->getTipoCambio();
+
+		if (isset($_POST['Moneda'])) {
+			$monedaDocumento = $_POST['Moneda'];
+		} else {
+			$monedaDocumento = $this->getMonedaDocumento();
+		}
 
 		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
 		$exists_database = mysql_select_db($database_name);
@@ -2286,8 +2291,8 @@ class Vendedoras
                     $mail->MsgHTML($body);
 
                     // podemos hacer varios AddAdress
-                    $mail->AddAddress("csarynga@gmail.com","Gracias por reservar en Michelle Belau");
-                    //$mail->AddAddress("jcarbajal@michellebelau.com","Atencion al usuario");
+                    $mail->AddAddress("jcarbajal@michellebelau.com","Gracias por reservar en Michelle Belau");
+                    // $mail->AddAddress("jcarbajal@michellebelau.com","Atencion al usuario");
                     // si el SMTP necesita autenticación
                     $mail->SMTPAuth = true;
 
