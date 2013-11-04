@@ -444,6 +444,89 @@ class Vendedoras
 		}		
 	}
 
+	function ObtenerProductosGenericosClientas()
+	{
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+		
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexión con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		
+		if ($exists_database) 
+		{		
+			$query = "  SELECT DISTINCT PG.item, PG.descripcionlocal, PG.caracteristicavalor04, PG.marcacodigo, P.monto, P.moneda,
+										I.UnidadCodigo, I.EspecificacionTecnica, I.EspecificacionTecnicaIngles, 
+										MAX(IF(DATEDIFF(NOW(), F.FechaActualizacion) <= 7, 1, 0)) AS nuevo
+						FROM
+							wh_itemmast I,
+							wh_itemmast PG,
+							coleccion C,
+							co_precio P,
+							wh_ItemFoto F,
+							wh_itemalmacenlote A
+						WHERE
+							PG.item = I.itempreciocodigo
+						AND I.item = F.item
+						AND I.item = A.item
+						AND A.almacencodigo = '0001'
+						AND IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) > 4
+						AND P.tiporegistro = 'P'
+						AND P.cliente = '$$'
+						AND P.periodovalidez = '$$'
+						AND PG.item = P.itemcodigo
+						AND I.familia = '$_POST[Familia]'
+						AND I.linea = '$_POST[Linea]'
+						AND C.ColeccionID = '$_POST[ColeccionID]'
+						AND (
+							C.Temporada1 = I.caracteristicavalor04 OR
+							C.Temporada2 = I.caracteristicavalor04 OR
+							C.Temporada3 = I.caracteristicavalor04 OR
+							C.Temporada4 = I.caracteristicavalor04 OR
+							C.Temporada5 = I.caracteristicavalor04						
+							)
+						GROUP BY PG.Item";
+			$query_resource = mysql_query($query);
+
+			if ($query_resource == FALSE) 
+			{
+				$query_result = array("Genericos" => array());
+				mysql_close($database_conn);
+				$this->sendResponse(500, "Error en el query.");	
+			} 
+			else 
+			{
+				$temp_result = array();
+				while ($query_row = mysql_fetch_array($query_resource)) 
+				{
+					$temp_array[] = array
+									(
+										  'Itempreciocodigo'=>$query_row['item'],
+										  'Descripcionsubfamilia'=>utf8_encode($query_row['descripcionlocal']),
+										  'Caracteristicavalor04'=>$query_row['caracteristicavalor04'],
+										  'Precio'=>$query_row['monto'],
+										  'Moneda'=>$query_row['moneda'],
+										  'Marca'=>$query_row['marcacodigo'],
+										  'Unidad'=>$query_row['UnidadCodigo'],
+										  'EspecificacionTecnica'=>$query_row['EspecificacionTecnica'],
+										  'EspecificacionTecnicaIngles'=>$query_row['EspecificacionTecnicaIngles'],
+										  'nuevo'=>$query_row['nuevo'],
+									);
+				}
+				
+				$query_result = array("Genericos" => $temp_array);
+				mysql_close($database_conn);
+				$this->sendResponse(200, json_encode($query_result));
+			}			
+		} 
+		else 
+		{
+			$mysql_close($database_conn);
+			$this->sendResponse(500, "No existe la base de datos.");
+		}		
+	}
+
 	function ObtenerProductosGenericosPorCliente()
 	{
 		$host_name = '192.168.1.193';
@@ -456,7 +539,7 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{			
-			$query = "  SELECT DISTINCT PG.item, PG.descripcionlocal, PG.caracteristicavalor04, PG.marcacodigo, P.monto, P.moneda,
+			$query = " 	SELECT DISTINCT PG.item, PG.descripcionlocal, PG.caracteristicavalor04, PG.marcacodigo, P.monto, P.moneda,
 										I.UnidadCodigo, I.EspecificacionTecnica, I.EspecificacionTecnicaIngles, 
 										MAX(IF(DATEDIFF(NOW(), F.FechaActualizacion) <= 7, 1, 0)) AS nuevo
 						FROM
@@ -464,10 +547,15 @@ class Vendedoras
 							wh_itemmast PG,
 							coleccion C,
 							co_precio P,
-							wh_ItemFoto F
+							wh_ItemFoto F,
+							wh_itemalmacenlote A
 						WHERE
 							PG.item = I.itempreciocodigo
 						AND I.item = F.item
+						AND I.item = A.item
+						AND (A.almacencodigo = '0001' OR
+								A.almacencodigo = '0031')
+						AND IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) > 0
 						AND P.tiporegistro = 'P'
 						AND P.cliente = '$_POST[codigoCliente]'
 						AND P.periodovalidez = '$$'
@@ -1973,7 +2061,7 @@ class Vendedoras
 					$temp_array[] = array
 									(
 										'Codigo'=> $query_row['vendedor'],
-										'Nombre' => $query_row['nombrecompleto']
+										'Nombre' => utf8_encode($query_row['nombrecompleto'])
 									);
 				}
 				
@@ -2304,6 +2392,9 @@ if( isset($_POST['metodo']))
  	}
  	if( strcmp($nombreMetodo, "OBTENERPRODUCTOSGENERICOS") == 0 ){
  		$vendedora-> ObtenerProductosGenericos();
+ 	}
+ 	if( strcmp($nombreMetodo, "OBTENERPRODUCTOSGENERICOSCLIENTAS") == 0 ){
+ 		$vendedora-> ObtenerProductosGenericosClientas();
  	}
  	if( strcmp($nombreMetodo, "OBTENERPRODUCTOSGENERICOSPORCLIENTE") == 0 ){
  		$vendedora-> ObtenerProductosGenericosPorCliente();
