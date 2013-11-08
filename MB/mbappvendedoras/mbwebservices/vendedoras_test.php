@@ -145,13 +145,13 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{			
-			$query = "	SELECT F.familia, F.descripcionlocal, F.linea
+			$query = "	SELECT  DISTINCT Eq.CodAgpFam Familia, Eq.DescripcionCodAgpFam descripcionlocal, Agp.linea linea
 						FROM
 						  wh_claselinea L,
-						  wh_clasegrupolinea G,
-						  wh_clasefamilia F
-						WHERE L.grupolinea = G.grupolinea
-						AND L.linea = F.linea
+						  AgpLineaFam Agp,
+						  EqAgpFam Eq
+						WHERE L.linea = Agp.linea
+						AND Eq.CodAgpFam = Agp.CodAgpFam
 						AND L.grupolinea = '$_POST[grupolinea]' ";
 			$query_resource = mysql_query($query);
 
@@ -168,7 +168,7 @@ class Vendedoras
 				{
 					$query_result[] = array
 									(
-										  'Familia'=>$query_row['familia'],
+										  'Familia'=>$query_row['Familia'],
 										  'Descripcionlocal'=>utf8_encode($query_row['descripcionlocal']),
 										  'Linea'=>$query_row['linea']
 									);
@@ -456,7 +456,7 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{		
-			$query = "  SELECT DISTINCT PG.item, PG.descripcionlocal, PG.caracteristicavalor04, PG.marcacodigo, P.monto, P.moneda,
+			$query = "  SELECT DISTINCT PG.item, PG.descripcionlocal, I.linea, I.familia, PG.caracteristicavalor04, PG.marcacodigo, P.monto, P.moneda,
 										I.UnidadCodigo, I.EspecificacionTecnica, I.EspecificacionTecnicaIngles, 
 										MAX(IF(DATEDIFF(NOW(), F.FechaActualizacion) <= 7, 1, 0)) AS nuevo
 						FROM
@@ -465,18 +465,20 @@ class Vendedoras
 							coleccion C,
 							co_precio P,
 							wh_ItemFoto F,
+							AgpLineaFam Agp,
 							wh_itemalmacenlote A
 						WHERE
 							PG.item = I.itempreciocodigo
 						AND I.item = F.item
 						AND I.item = A.item
+						AND Agp.Familia = I.familia
 						AND A.almacencodigo = '0001'
 						AND IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) > 4
 						AND P.tiporegistro = 'P'
 						AND P.cliente = '$$'
 						AND P.periodovalidez = '$$'
 						AND PG.item = P.itemcodigo
-						AND I.familia = '$_POST[Familia]'
+						AND Agp.CodAgpFam = '$_POST[Familia]'
 						AND I.linea = '$_POST[Linea]'
 						AND C.ColeccionID = '$_POST[ColeccionID]'
 						AND (
@@ -504,6 +506,8 @@ class Vendedoras
 									(
 										  'Itempreciocodigo'=>$query_row['item'],
 										  'Descripcionsubfamilia'=>utf8_encode($query_row['descripcionlocal']),
+										  'linea'=>$query_row['linea'],
+										  'familia'=>$query_row['familia'],
 										  'Caracteristicavalor04'=>$query_row['caracteristicavalor04'],
 										  'Precio'=>$query_row['monto'],
 										  'Moneda'=>$query_row['moneda'],
@@ -555,7 +559,7 @@ class Vendedoras
 						AND I.item = A.item
 						AND (A.almacencodigo = '0001' OR
 								A.almacencodigo = '0031')
-						AND IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) > 0
+						AND IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) > 4
 						AND P.tiporegistro = 'P'
 						AND P.cliente = '$_POST[codigoCliente]'
 						AND P.periodovalidez = '$$'

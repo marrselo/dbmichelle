@@ -555,7 +555,7 @@ class Vendedoras
 						AND I.item = A.item
 						AND (A.almacencodigo = '0001' OR
 								A.almacencodigo = '0031')
-						AND IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) > 0
+						AND IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) > 4
 						AND P.tiporegistro = 'P'
 						AND P.cliente = '$_POST[codigoCliente]'
 						AND P.periodovalidez = '$$'
@@ -902,6 +902,61 @@ class Vendedoras
 						WHERE
 							I.item = A.item AND
 							A.almacencodigo = '0001' AND
+							I.itempreciocodigo = '$_POST[Item]'";
+								
+			$query_resource = mysql_query($query);
+
+			if ($query_resource == FALSE) 
+			{
+				$query_result = array("StockLocal" => array());
+				mysql_close($database_conn);
+				$this->sendResponse("Error en el query.");	
+			} 
+			else 
+			{
+				$result = array();
+				while ($query_row = mysql_fetch_array($query_resource)) 
+				{
+					$result[] = array
+									(
+										'Tallacodigo'=>$query_row['tallacodigo'],
+										'Colorcodigo'=>$query_row['color'],
+										'Stockdisponible'=>$query_row['stockdisponible']
+									);
+				}
+				
+				mysql_close($database_conn);
+				$this->sendResponse(200, json_encode($result));
+			}			
+		
+		} 
+		else 
+		{
+			$mysql_close($database_conn);
+			$this->sendResponse(500, "No existe la base de datos.");
+		}
+	}
+
+	function ObtenerStockFranquicias()
+	{
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+		
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		
+		if ($exists_database) 
+		{			
+			$query = "  SELECT I.tallacodigo, I.color, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
+						FROM
+							wh_itemmast I,
+							wh_itemalmacenlote A
+						WHERE
+							I.item = A.item AND
+							(A.almacencodigo = '0001' OR
+								A.almacencodigo = '0031')AND
 							I.itempreciocodigo = '$_POST[Item]'";
 								
 			$query_resource = mysql_query($query);
@@ -2416,6 +2471,9 @@ if( isset($_POST['metodo']))
  	}
  	if( strcmp($nombreMetodo, "OBTENERSTOCKCLIENTAS") == 0 ){
  		$vendedora-> ObtenerStockClientas();
+ 	}
+ 	if( strcmp($nombreMetodo, "OBTENERSTOCKFRANQUICIAS") == 0 ){
+ 		$vendedora-> ObtenerStockFranquicias();
  	}
 	if( strcmp($nombreMetodo, "OBTENERCLIENTEPORDNI") == 0 ){
  		$vendedora-> ObtenerClientePorDNI();
