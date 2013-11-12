@@ -145,7 +145,7 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{			
-			$query = "	SELECT  DISTINCT Eq.CodAgpFam Familia, Eq.DescripcionCodAgpFam descripcionlocal, Agp.linea linea
+			$query = "	SELECT  DISTINCT Eq.CodAgpFam Familia, Eq.DescripcionCodAgpFam descripcionlocal
 						FROM
 						  wh_claselinea L,
 						  AgpLineaFam Agp,
@@ -169,8 +169,7 @@ class Vendedoras
 					$query_result[] = array
 									(
 										  'Familia'=>$query_row['Familia'],
-										  'Descripcionlocal'=>utf8_encode($query_row['descripcionlocal']),
-										  'Linea'=>$query_row['linea']
+										  'Descripcionlocal'=>utf8_encode($query_row['descripcionlocal'])
 									);
 				}
 				mysql_close($database_conn);
@@ -479,7 +478,6 @@ class Vendedoras
 						AND P.periodovalidez = '$$'
 						AND PG.item = P.itemcodigo
 						AND Agp.CodAgpFam = '$_POST[Familia]'
-						AND I.linea = '$_POST[Linea]'
 						AND C.ColeccionID = '$_POST[ColeccionID]'
 						AND (
 							C.Temporada1 = I.caracteristicavalor04 OR
@@ -675,7 +673,158 @@ class Vendedoras
 			$this->sendResponse(500, "No existe la base de datos.");
 		}	
 	}
+
+	function ObtenerProductosEspecificosClientas()
+	{
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+		
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		
+		if ($exists_database) 
+		{			
+			$query = "SELECT DISTINCT I.item, I.descripcioncompleta, I.descripcionlocal, I.color, C.descripcioncorta AS ColorDesc, I.tallacodigo, T.descripcionlocal AS TallaDesc, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
+						FROM 
+							wh_itemmast I,
+							wh_talla T,
+							colormast C,
+							wh_itemalmacenlote A
+						WHERE
+							I.color = C.color AND
+							I.tallacodigo = T.talla AND
+							I.item = A.item AND
+							A.almacencodigo = '0001' AND
+							I.itempreciocodigo = '$_POST[Itempreciocodigo]' ";
+								
+			$query_resource = mysql_query($query);
+
+			if ($query_resource == FALSE) 
+			{
+				$query_result = array("Especificos" => array());
+				mysql_close($database_conn);
+				$this->sendResponse("Error en el query.");	
+			} 
+			else 
+			{
+				$temp_result = array();
+				while ($query_row = mysql_fetch_array($query_resource)) 
+				{
+					$descripcion = $query_row['descripcioncompleta'];
+					if($descripcion == null OR $descripcion == "")
+						$descripcion = $query_row['descripcionlocal'];
+					$temp_array[] = array
+									(
+										  'Item'=>$query_row['item'],
+										  'Descripcioncompleta'=>utf8_encode($descripcion),
+										  'Color'=>$query_row['color'],
+										  'ColorDesc'=>$query_row['ColorDesc'],
+										  'Talla'=>$query_row['tallacodigo'],
+										  'TallaDesc'=>$query_row['TallaDesc'],
+										  'stock'=>$query_row['stockdisponible']
+									);
+				}
+				
+				$query_result = array("Especificos" => $temp_array);
+				mysql_close($database_conn);
+				$this->sendResponse(200, json_encode($query_result));
+			}			
+		} 
+		else 
+		{
+			$mysql_close($database_conn);
+			$this->sendResponse(500, "No existe la base de datos.");
+		}	
+	}
 	
+	function ObtenerProductosEspecificosFranquicias()
+	{
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+		
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		
+		if ($exists_database) 
+		{			
+			$query = "	SELECT T1.item, T1.descripcioncompleta, T1.descripcionlocal, T1.color, T1.ColorDesc, T1.tallacodigo, T1.TallaDesc, IF(T1.stockdisponible + T2.stockdisponible >4,T1.stockdisponible + T2.stockdisponible,0) AS stockdisponible
+						FROM 
+						(
+						SELECT DISTINCT I.item, I.descripcioncompleta, I.descripcionlocal, I.color, C.descripcioncorta AS ColorDesc, I.tallacodigo, T.descripcionlocal AS TallaDesc, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
+												FROM 
+													wh_itemmast I,
+													wh_talla T,
+													colormast C,
+													wh_itemalmacenlote A
+												WHERE
+													I.color = C.color AND
+													I.tallacodigo = T.talla AND
+													I.item = A.item AND
+													A.almacencodigo = '0001' AND
+													I.itempreciocodigo = '$_POST[Itempreciocodigo]'
+						) T1,
+						(
+						SELECT DISTINCT I.item, I.descripcioncompleta, I.descripcionlocal, I.color, C.descripcioncorta AS ColorDesc, I.tallacodigo, T.descripcionlocal AS TallaDesc, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
+												FROM 
+													wh_itemmast I,
+													wh_talla T,
+													colormast C,
+													wh_itemalmacenlote A
+												WHERE
+													I.color = C.color AND
+													I.tallacodigo = T.talla AND
+													I.item = A.item AND
+													A.almacencodigo = '0031' AND
+													I.itempreciocodigo = '$_POST[Itempreciocodigo]'
+						)T2
+						WHERE
+							T1.tallacodigo = T2.tallacodigo AND
+							T1.color = T2.color ";
+								
+			$query_resource = mysql_query($query);
+
+			if ($query_resource == FALSE) 
+			{
+				$query_result = array("Especificos" => array());
+				mysql_close($database_conn);
+				$this->sendResponse("Error en el query.");	
+			} 
+			else 
+			{
+				$temp_result = array();
+				while ($query_row = mysql_fetch_array($query_resource)) 
+				{
+					$descripcion = $query_row['descripcioncompleta'];
+					if($descripcion == null OR $descripcion == "")
+						$descripcion = $query_row['descripcionlocal'];
+					$temp_array[] = array
+									(
+										  'Item'=>$query_row['item'],
+										  'Descripcioncompleta'=>utf8_encode($descripcion),
+										  'Color'=>$query_row['color'],
+										  'ColorDesc'=>$query_row['ColorDesc'],
+										  'Talla'=>$query_row['tallacodigo'],
+										  'TallaDesc'=>$query_row['TallaDesc'],
+										  'stock'=>$query_row['stockdisponible']
+									);
+				}
+				
+				$query_result = array("Especificos" => $temp_array);
+				mysql_close($database_conn);
+				$this->sendResponse(200, json_encode($query_result));
+			}			
+		} 
+		else 
+		{
+			$mysql_close($database_conn);
+			$this->sendResponse(500, "No existe la base de datos.");
+		}	
+	}
+
 	function ObtenerCombinaciones()
 	{
 		$host_name = '192.168.1.193';
@@ -953,15 +1102,31 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{			
-			$query = "  SELECT I.tallacodigo, I.color, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
-						FROM
-							wh_itemmast I,
-							wh_itemalmacenlote A
+			$query = "  SELECT T1.tallacodigo, T1.color, T1.stockdisponible + T2.stockdisponible AS stockTotal
+						FROM 
+						(
+						SELECT I.tallacodigo, I.color, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
+												FROM
+													wh_itemmast I,
+													wh_itemalmacenlote A
+												WHERE
+													I.item = A.item AND
+													A.almacencodigo = '0001' AND
+													I.itempreciocodigo = '$_POST[Item]'
+						) T1,
+						(
+						SELECT I.tallacodigo, I.color, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
+												FROM
+													wh_itemmast I,
+													wh_itemalmacenlote A
+												WHERE
+													I.item = A.item AND
+													A.almacencodigo = '0031' AND
+													I.itempreciocodigo = '$_POST[Item]'
+						)T2
 						WHERE
-							I.item = A.item AND
-							(A.almacencodigo = '0001' OR
-								A.almacencodigo = '0031')AND
-							I.itempreciocodigo = '$_POST[Item]'";
+							T1.tallacodigo = T2.tallacodigo AND
+							T1.color = T2.color ";
 								
 			$query_resource = mysql_query($query);
 
@@ -2383,7 +2548,8 @@ class Vendedoras
                     $mail->MsgHTML($body);
 
                     // podemos hacer varios AddAdress
-                    $mail->AddAddress("jcarbajal@michellebelau.com","Gracias por reservar en Michelle Belau");
+                    //$mail->AddAddress("jcarbajal@michellebelau.com","Gracias por reservar en Michelle Belau");
+                    $mail->AddAddress("cesarynga@onlinestudioproductions.com","Gracias por reservar en Michelle Belau");
                     // $mail->AddAddress("jcarbajal@michellebelau.com","Atencion al usuario");
                     // si el SMTP necesita autenticación
                     $mail->SMTPAuth = true;
@@ -2451,6 +2617,12 @@ if( isset($_POST['metodo']))
  	}
 	if( strcmp($nombreMetodo, "OBTENERPRODUCTOSESPECIFICOS") == 0 ){
  		$vendedora-> ObtenerProductosEspecificos();
+ 	}
+ 	if( strcmp($nombreMetodo, "OBTENERPRODUCTOSESPECIFICOSCLIENTAS") == 0 ){
+ 		$vendedora-> ObtenerProductosEspecificosClientas();
+ 	}
+ 	if( strcmp($nombreMetodo, "OBTENERPRODUCTOSESPECIFICOSFRANQUICIAS") == 0 ){
+ 		$vendedora-> ObtenerProductosEspecificosFranquicias();
  	}
 	if( strcmp($nombreMetodo, "OBTENERCOMBINACIONES") == 0 ){
  		$vendedora-> ObtenerCombinaciones();
