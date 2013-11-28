@@ -34,6 +34,43 @@ class Vendedoras
 	function __destruct()
 	{}
 
+	function VerificarServicios() {
+
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		if ($exists_database) 
+		{	
+			$query = "	SELECT *
+						FROM CorrelativosMysql
+						WHERE serie = '$_POST[serie]' ";
+			$query_resource = mysql_query($query);
+			if ($query_resource == FALSE) 
+			{
+				mysql_close($database_conn);
+				$this->sendResponse(500, "Error en el query.");	
+			}
+			else 
+			{
+				$query_row = mysql_fetch_array($query_resource);
+				$estado = $query_row['flag'];
+				if ($estado != 'A') {
+					$mensaje = $query_row['Mensaje'];						
+					mysql_close($database_conn);
+					$this->sendResponse(202, $mensaje);	
+				}
+			}
+		}
+		else 
+		{
+			$mysql_close($database_conn);
+			$this->sendResponse(500, "No existe la base de datos.");
+		}
+	}
+
 	
 	function ObtenerEstablecimientosPorMarca()
 	{
@@ -739,92 +776,6 @@ class Vendedoras
 		}	
 	}
 
-	function ObtenerProductosEspecificosFranquicias()
-	{
-		$host_name = '192.168.1.193';
-		$host_password = 'migramb';
-		$host_user = 'migra';
-		$database_name = 'mbinterface';
-		
-		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
-		$exists_database = mysql_select_db($database_name);
-		
-		if ($exists_database) 
-		{			
-			$query = "	SELECT T1.item, T1.descripcioncompleta, T1.descripcionlocal, T1.color, T1.ColorDesc, T1.tallacodigo, T1.TallaDesc, IF(T1.stockdisponible + T2.stockdisponible >4,T1.stockdisponible + T2.stockdisponible,0) AS stockdisponible
-						FROM 
-						(
-						SELECT DISTINCT I.item, I.descripcioncompleta, I.descripcionlocal, I.color, C.descripcioncorta AS ColorDesc, I.tallacodigo, T.descripcionlocal AS TallaDesc, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
-												FROM 
-													wh_itemmast I,
-													wh_talla T,
-													colormast C,
-													wh_itemalmacenlote A
-												WHERE
-													I.color = C.color AND
-													I.tallacodigo = T.talla AND
-													I.item = A.item AND
-													A.almacencodigo = '0001' AND
-													I.itempreciocodigo = '$_POST[Itempreciocodigo]'
-						) T1,
-						(
-						SELECT DISTINCT I.item, I.descripcioncompleta, I.descripcionlocal, I.color, C.descripcioncorta AS ColorDesc, I.tallacodigo, T.descripcionlocal AS TallaDesc, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
-												FROM 
-													wh_itemmast I,
-													wh_talla T,
-													colormast C,
-													wh_itemalmacenlote A
-												WHERE
-													I.color = C.color AND
-													I.tallacodigo = T.talla AND
-													I.item = A.item AND
-													A.almacencodigo = '0031' AND
-													I.itempreciocodigo = '$_POST[Itempreciocodigo]'
-						)T2
-						WHERE
-							T1.tallacodigo = T2.tallacodigo AND
-							T1.color = T2.color";
-								
-			$query_resource = mysql_query($query);
-
-			if ($query_resource == FALSE) 
-			{
-				$query_result = array("Especificos" => array());
-				mysql_close($database_conn);
-				$this->sendResponse("Error en el query.");	
-			} 
-			else 
-			{
-				$temp_result = array();
-				while ($query_row = mysql_fetch_array($query_resource)) 
-				{
-					$descripcion = $query_row['descripcioncompleta'];
-					if($descripcion == null OR $descripcion == "")
-						$descripcion = $query_row['descripcionlocal'];
-					$temp_array[] = array
-									(
-										  'Item'=>$query_row['item'],
-										  'Descripcioncompleta'=>utf8_encode($descripcion),
-										  'Color'=>$query_row['color'],
-										  'ColorDesc'=>$query_row['ColorDesc'],
-										  'Talla'=>$query_row['tallacodigo'],
-										  'TallaDesc'=>$query_row['TallaDesc'],
-										  'stock'=>$query_row['stockdisponible']
-									);
-				}
-				
-				$query_result = array("Especificos" => $temp_array);
-				mysql_close($database_conn);
-				$this->sendResponse(200, json_encode($query_result));
-			}			
-		} 
-		else 
-		{
-			$mysql_close($database_conn);
-			$this->sendResponse(500, "No existe la base de datos.");
-		}	
-	}
-
 	function ObtenerCombinaciones()
 	{
 		$host_name = '192.168.1.193';
@@ -837,7 +788,7 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{			
-				$query = "  SELECT DISTINCT I.itempreciocodigo, PG.descripcionlocal, F.descripcionlocal AS FamiliaDesc, I.caracteristicavalor04, I.linea, I.familia,  PG.marcacodigo, P.monto, P.moneda
+				$query = "  SELECT DISTINCT I.itempreciocodigo, PG.descripcionlocal, F.descripcionlocal AS FamiliaDesc, I.caracteristicavalor04, I.linea, I.familia,  PG.marcacodigo, P.monto, P.moneda, I.UnidadCodigo
 							FROM
 							  combinacion C,
 							  wh_itemmast I,
@@ -854,7 +805,7 @@ class Vendedoras
 							AND F.familia = I.familia
 							AND C.Item1 =  '$_POST[Itempreciocodigo]'
 							UNION 
-							SELECT DISTINCT I.itempreciocodigo, PG.descripcionlocal, F.descripcionlocal AS FamiliaDesc, I.caracteristicavalor04,  I.linea, I.familia,  PG.marcacodigo, P.monto, P.moneda
+							SELECT DISTINCT I.itempreciocodigo, PG.descripcionlocal, F.descripcionlocal AS FamiliaDesc, I.caracteristicavalor04,  I.linea, I.familia,  PG.marcacodigo, P.monto, P.moneda, I.UnidadCodigo
 							FROM
 							  combinacion C,
 							  wh_itemmast I,
@@ -894,7 +845,8 @@ class Vendedoras
 										'Codigofamilia'=>$query_row['familia'],
 										'Precio'=>$query_row['monto'],
 										'Moneda'=>$query_row['moneda'],
-										'Marca'=>$query_row['marcacodigo']
+										'Marca'=>$query_row['marcacodigo'],
+										'Unidad'=>$query_row['UnidadCodigo']
 									);
 				}
 				
@@ -1090,77 +1042,6 @@ class Vendedoras
 		}
 	}
 
-	function ObtenerStockFranquicias()
-	{
-		$host_name = '192.168.1.193';
-		$host_password = 'migramb';
-		$host_user = 'migra';
-		$database_name = 'mbinterface';
-		
-		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
-		$exists_database = mysql_select_db($database_name);
-		
-		if ($exists_database) 
-		{			
-			$query = "  SELECT T1.tallacodigo, T1.color, T1.stockdisponible + T2.stockdisponible AS stockTotal
-						FROM 
-						(
-						SELECT I.tallacodigo, I.color, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
-												FROM
-													wh_itemmast I,
-													wh_itemalmacenlote A
-												WHERE
-													I.item = A.item AND
-													A.almacencodigo = '0001' AND
-													I.itempreciocodigo = '$_POST[Item]'
-						) T1,
-						(
-						SELECT I.tallacodigo, I.color, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
-												FROM
-													wh_itemmast I,
-													wh_itemalmacenlote A
-												WHERE
-													I.item = A.item AND
-													A.almacencodigo = '0031' AND
-													I.itempreciocodigo = '$_POST[Item]'
-						)T2
-						WHERE
-							T1.tallacodigo = T2.tallacodigo AND
-							T1.color = T2.color";
-								
-			$query_resource = mysql_query($query);
-
-			if ($query_resource == FALSE) 
-			{
-				$query_result = array("StockLocal" => array());
-				mysql_close($database_conn);
-				$this->sendResponse("Error en el query.");	
-			} 
-			else 
-			{
-				$result = array();
-				while ($query_row = mysql_fetch_array($query_resource)) 
-				{
-					$result[] = array
-									(
-										'Tallacodigo'=>$query_row['tallacodigo'],
-										'Colorcodigo'=>$query_row['color'],
-										'Stockdisponible'=>$query_row['stockdisponible']
-									);
-				}
-				
-				mysql_close($database_conn);
-				$this->sendResponse(200, json_encode($result));
-			}			
-		
-		} 
-		else 
-		{
-			$mysql_close($database_conn);
-			$this->sendResponse(500, "No existe la base de datos.");
-		}
-	}
-
 	function VerificarItemReservado()
 	{
 		$host_name = '192.168.1.193';
@@ -1216,6 +1097,61 @@ class Vendedoras
 		}
 	}
 	
+	function VerificarItemReservadoFranquicias()
+	{
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+		
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		
+		if ($exists_database) 
+		{			
+			$query = "  SELECT SUM(IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido)) as stockdisponible
+						FROM
+							wh_itemmast I,
+							wh_itemalmacenlote A
+						WHERE
+							I.item = A.item AND
+							(A.almacencodigo = '0001' OR A.almacencodigo = '0031') AND
+							I.Item = '$_POST[Item]' ";
+								
+			$query_resource = mysql_query($query);
+
+			if ($query_resource == FALSE) 
+			{
+				$query_result = array("StockLocal" => array());
+				mysql_close($database_conn);
+				$this->sendResponse("Error en el query.");	
+			} 
+			else 
+			{
+				$temp_result = array();
+				$precio = new Precio();
+				$descuento = $precio->getDescuento();
+				while ($query_row = mysql_fetch_array($query_resource)) 
+				{
+					$temp_array = array
+									(
+										'Stockdisponible'=>$query_row['stockdisponible'],
+										'Descuento' => $descuento
+									);
+				}
+				
+				mysql_close($database_conn);
+				$this->sendResponse(200, json_encode($temp_array));
+			}			
+		
+		} 
+		else 
+		{
+			$mysql_close($database_conn);
+			$this->sendResponse(500, "No existe la base de datos.");
+		}
+	}
+
 	function ObtenerPrecios()
 	{
 		$host_name = '192.168.1.193';
@@ -1509,12 +1445,15 @@ class Vendedoras
 
 	function registrarReserva()
 	{
+
+		$this->VerificarServicios();
+
 		$correlativo = $this->getCorrelativo();
 //		$host_name = '54.232.196.181';
 //		$host_password = '123456';
 //		$host_user = 'root';
 //		$database_name = 'mbinterface';
-                $host_name = '192.168.1.193';
+        $host_name = '192.168.1.193';
 		$host_password = 'migramb';
 		$host_user = 'migra';
 		$database_name = 'mbinterface';
@@ -1532,14 +1471,14 @@ class Vendedoras
 			$monedaDocumento = $this->getMonedaDocumento();
 		}
 
-		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexión con la base de datos');
 		$exists_database = mysql_select_db($database_name);
 		
 		if ($exists_database) 
 		{
 		
 		//$centroCosto = $this->getCentroCosto($_POST[EstablecimientoCodigo]);
-			if($correlativo != null && $correlativo > 0)
+			if($correlativo != null)
 			{	
 				$query = "  INSERT INTO co_documento (
                                 CompaniaSocio,
@@ -2197,8 +2136,33 @@ class Vendedoras
 		
 	}
 
+	function actualizarCorrelativo() {
+
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		
+		if ($exists_database) 
+		{
+			$query = "  UPDATE CorrelativosMysql
+						SET correlativonumero = correlativonumero + 1
+						WHERE serie = '$_POST[serie]' ";
+			$query_resource = mysql_query($query);
+		}
+		else 
+		{
+			$mysql_close($database_conn);
+		}	
+	}
+
 	function getCorrelativo()
 	{
+
+		$this->VerificarServicios();
 		$host_name = '192.168.1.193';
 		$host_password = 'migramb';
 		$host_user = 'migra';
@@ -2208,10 +2172,13 @@ class Vendedoras
 		$exists_database = mysql_select_db($database_name);
 		
 		if ($exists_database) 
-		{
+		{/*
 			$query = "  SELECT (correlativonumero + 1) AS correlativonumero
 						FROM CorrelativosMast
-						WHERE serie = 'COPE' ";
+						WHERE serie = 'COPE' ";*/
+			$query = "  SELECT serie, (correlativonumero + 1) AS correlativonumero
+						FROM CorrelativosMysql
+						WHERE serie = '$_POST[serie]' ";
 								
 			$query_resource = mysql_query($query);
 
@@ -2226,14 +2193,16 @@ class Vendedoras
 				while ($query_row = mysql_fetch_array($query_resource))
 				{
 					$correlativo = $query_row['correlativonumero'];
+					$serie = $query_row['serie'];
 				}
 				$size = strlen($correlativo);
-				if($size < 10)
+				if($size < 8)
 				{
-					$dif = 10 - $size;
-					for ($i=0; $i < $dif; $i++) { 
+					$dif = 8 - $size;
+					for ($i=0; $i < $dif; $i++) {
 						$correlativo = "0".$correlativo;
 					}
+					$correlativo = $serie.$correlativo;
 				}
 				mysql_close($database_conn);
 				return $correlativo;
@@ -2463,18 +2432,18 @@ class Vendedoras
 			if ($queryResult == FALSE) {
 				$result = array('registro' => '0');
 				mysql_close($database_conn);
-                                $this->sendResponse(500, json_encode($result));
+                $this->sendResponse(500, json_encode($result));
 				
 			} else {
-                                $detail=  json_decode($_POST['detail']);                                  
-                                $msj=$this->sendMail($_POST['email'],
-                                					$_POST['usuario'],$detail,
-				                                    $_POST['DireccionEntrega'],
-				                                    $_POST['departamentoNombre'],
-				                                    $_POST['provinciaNombre'],
-				                                    $_POST['distritoNombre'],
-				                                    $_POST['NumeroPedido'],
-				                                    $_POST['TipoDocumentoPago']);
+                $detail=  json_decode($_POST['detail']);                                  
+                $msj=$this->sendMail($_POST['email'],
+                					$_POST['usuario'],$detail,
+                                    $_POST['DireccionEntrega'],
+                                    $_POST['departamentoNombre'],
+                                    $_POST['provinciaNombre'],
+                                    $_POST['distritoNombre'],
+                                    $_POST['NumeroPedido'],
+                                    $_POST['TipoDocumentoPago']);
 				$result = array('registro' => '1','msj'=>$msj);
 				mysql_close($database_conn);
 				$this->sendResponse(200, json_encode($result));							
@@ -2559,6 +2528,10 @@ class Vendedoras
                     // podemos hacer varios AddAdress
                     $mail->AddAddress($email,"Gracias por reservar en Michelle Belau");
                     $mail->AddAddress("jcarbajal@michellebelau.com","Atencion al usuario");
+                    
+                    //$mail->AddAddress("cesarynga@onlinestudioproductions.com","Gracias por reservar en Michelle Belau");
+                    //$mail->AddAddress("csarynga@gmail.com","Gracias por reservar en Michelle Belau");
+                    
                     // si el SMTP necesita autenticación
                     $mail->SMTPAuth = true;
 
@@ -2588,6 +2561,441 @@ class Vendedoras
             $this->sendResponse(200, json_encode(array('msj'=>$msj)));
         }
         
+    function reservaPedido()
+	{
+		$correlativo = $this->getCorrelativo();
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+		
+		$tipoFacturacion = $this->getTipoFacturacion();
+		$tipoVenta = $this->getTipoVenta();
+		$formaPago = $this->getFormaDePago();
+		
+		$unidadNegocio = $this->getUnidadNegocio();
+		$tipoCambio = $this->getTipoCambio();
+
+		if (isset($_POST['Moneda'])) {
+			$monedaDocumento = $_POST['Moneda'];
+		} else {
+			$monedaDocumento = $this->getMonedaDocumento();
+		}
+
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		
+		if ($exists_database) 
+		{
+		
+		//$centroCosto = $this->getCentroCosto($_POST[EstablecimientoCodigo]);
+			if($correlativo != null)
+			{	
+				mysql_query("BEGIN");
+				$query = "  INSERT INTO co_documento (
+                                CompaniaSocio,
+                                NumeroDocumento,
+                                TipoDocumento,
+                                Estado,
+                                ClienteNumero,
+                                ClienteRUC,
+                                ClienteNombre,
+                                TipoVenta,
+                                EstablecimientoCodigo,
+                                Vendedor,
+                                UltimoUsuario,
+                                FormadePago,
+                                ConceptoFacturacion,
+                                FechaDocumento,
+                                CentroCosto,
+                                ClienteDireccion,
+                                FormaFacturacion,
+                                TipoFacturacion,
+                                ClienteCobrarA,
+                                FechaVencimiento,
+                                MonedaDocumento,
+                                PreparadoPor,
+                                AprobadoPor,
+                                FechaPreparacion,
+                                FechaAprobacion,
+                                ImpresionPendienteFlag,
+                                DocumentoMoraFlag,
+                                ContabilizacionPendienteFlag,
+                                UltimaFechaModif,
+                                AlmacenCodigo,
+                                VoucherPeriodo,
+                                UnidadNegocio,
+                                UnidadReplicacion,
+                                MontoAfecto,
+                                MontoNoAfecto,
+                                MontoImpuestoVentas,
+                                MontoImpuestos,
+                                MontoDescuentos,
+                                MontoRedondeo,
+                                MontoTotal,
+                                MontoPagado,
+                                TipodeCambio,
+                                MontoAdelantoSaldo,
+                                Sucursal,
+                                TipoCanjeFactura,
+                                LetraDescuentoIntereses,
+                                LetraDescuentoVoucherFlag,
+                                APTransferidoFlag,
+                                CobranzaDudosaEstado,
+                                DocumentosinDespachoFlag,
+                                puntoscanjeados,
+                                puntosganados,
+                                valorunitariopunto,
+                                GiftCorporativoSaldoFlag,
+                                LetraCarteraFlag
+                                )
+
+                                VALUES (
+                                        '01000000',
+                                        '$correlativo',
+                                        'PE',
+                                        'AP',
+                                        '$_POST[ClienteNumero]',
+                                        '$_POST[ClienteRUC]',
+                                        '$_POST[ClienteNombre]',
+                                        '$tipoVenta',
+                                        '$_POST[EstablecimientoCodigo]',
+                                        '$_POST[CodigoVendedor]',
+                                        '$_POST[UltimoUsuario]',
+                                        '$formaPago',
+                                        '$_POST[ConceptoFacturacion]',
+                                        NOW(),
+                                        '$_POST[CentroCosto]',
+                                        '$_POST[ClienteDireccion]',
+                                        'F',
+                                        '$tipoFacturacion',
+                                        '$_POST[ClienteNumero]',
+                                        NOW(),
+                                        '$monedaDocumento',
+                                        '$_POST[CodigoVendedor]',
+                                        '$_POST[CodigoVendedor]',
+                                        NOW(),
+                                        NOW(),
+                                        'S',
+                                        'N',
+                                        'S',
+                                        NOW(),
+                                        '$_POST[CodigoAlmacen]',
+                                        CONCAT(YEAR(NOW()),Date_format(now(),'%m')),
+                                        '$unidadNegocio',
+                                        '$_POST[EstablecimientoCodigo]',
+                                        '$_POST[MontoAfecto]',
+                                        '0.0',
+                                        '$_POST[Impuestos]',
+                                        '0',
+                                        '0',
+                                        '0',
+                                        '$_POST[Monto]',
+                                        '0',
+                                        '$tipoCambio',
+                                        '0.00',
+                                        '$_POST[TipoTienda]',
+                                        'NO',
+                                        '0.00',
+                                        'N',
+                                        'N',
+                                        'NO',
+                                        'N',
+                                        0,
+                                        0,
+                                        20,
+                                        'X',
+                                        'S'
+
+                                        )";
+				
+				$query_resource = mysql_query($query);
+				if ($query_resource == FALSE)
+				{
+					mysql_close($database_conn);
+					$this->sendResponse(500,"Error al registrar pedido.");	
+				}
+				else 
+				{ 
+					$detalle=  json_decode($_POST['detalle']);
+					$reserva = $this->reservarPedidoItem($correlativo, $detalle);
+					if ($reserva) {
+						mysql_query("COMMIT");
+						$this->actualizarCorrelativoEnBack();
+						$this->registrarDirecionEntregaPedido($correlativo);
+						$response = array("reserva" => $correlativo);
+					} else {
+						mysql_query("ROLLBACK");
+						$response = array("reserva" => 0);
+					}
+					mysql_close($database_conn);
+                                       
+					$this->sendResponse(200, json_encode($response));
+				}
+			}
+			else
+			{
+				$mysql_close($database_conn);
+				$this->sendResponse(500, "Error en el numero correlativo");
+			}
+		
+		} 
+		else 
+		{
+			$mysql_close($database_conn);
+			$this->sendResponse(500, "No existe la base de datos.");
+		}
+	}
+
+	function reservarPedidoItem($numeroDocumento, $detalle)
+	{
+		$i = 1;
+
+		mysql_query("COMMIT");
+		foreach ($detalle as  $value) {
+			$linea = $i;
+			$i = $i + 1;
+			$itemCodigo = $value->codigo_item;
+			$cantidadPedida = $value->cantidad;
+			$precioUnitarioOriginal = $value->precioUnitario;
+			$descripcion = $value->descripcion;
+			$descuento = $value->descuento;
+			$precioUnitarioFinal = $precioUnitarioOriginal * (1-$descuento/100);
+			$precioUnitario = $precioUnitarioFinal / 1.18;
+			$monto = $precioUnitarioOriginal * $cantidadPedida;
+			$montoFinal = $precioUnitarioFinal * $cantidadPedida;
+			$unidad = $value->unidad;
+			$codigoAlmacen = $_POST['CodigoAlmacen'];
+			$codigoVendedor = $_POST['CodigoVendedor'];
+			$centroCosto = $_POST['CentroCosto'];
+			$ultimoUsuario = $_POST['UltimoUsuario'];
+			$sucursal = $_POST['Sucursal'];
+			$flujoCaja = $_POST['FlujoCaja'];
+
+			$query = "  INSERT INTO co_documentodetalle (
+                    TipoDocumento,
+                    NumeroDocumento,
+                    Linea,
+                    ItemCodigo,
+                    CantidadPedida,
+                    CantidadEntregada,
+                    CantidadVentaPerdida,
+                    PrecioUnitarioOriginal,
+                    PrecioUnitario,
+                    PrecioUnitarioFinal,
+                    PrecioModificadoFlag,
+                    Monto,
+                    MontoFinal,
+                    DocumentoRelacLinea,
+                    Estado,
+                    CentroCosto,
+                    IGVExoneradoFlag,
+                    CompaniaSocio,
+                    AlmacenCodigo,
+                    TipoDetalle,
+                    Condicion,
+                    Descripcion,
+                    UnidadCodigo,
+                    PorcentajeDescuento01,
+                    PorcentajeDescuento02,
+                    PorcentajeDescuento03,
+                    PrecioUnitarioDoble,
+                    TransferenciaGratuitaFlag,
+                    UltimaFechaModif,
+                    UltimoUsuario,
+                    Sucursal,
+                    FlujodeCaja,
+                    PrecioUnitarioGratuito,
+                    DespachoUnidadEquivalenteFlag
+
+                    )													
+                    VALUES (
+                            'PE',
+                            '$numeroDocumento',
+                            '$linea',
+                            '$itemCodigo',
+                            '$cantidadPedida',
+                            '$cantidadPedida',
+                            '0.00',
+                            '$precioUnitarioOriginal',
+                            '$precioUnitario',
+                            '$precioUnitarioFinal',
+                            'N',
+                            '$monto',
+                            '$montoFinal',
+                            '$codigoVendedor',
+                            'PR',
+                            '$centroCosto',
+                            'N',
+                            '01000000',
+                            '$codigoAlmacen',
+                            'I',
+                            '0',
+                            '$descripcion',
+                            '$unidad',
+                            '$descuento',
+                            '0',
+                            '$descuento',
+                            '$precioUnitarioFinal',
+                            'N',
+                            NOW(),
+                            '$ultimoUsuario',
+                            '$sucursal',
+                            '$flujoCaja',
+                            '0.000000',
+                            'N'
+                        )";
+				$query_resource = mysql_query($query);
+				if ($query_resource == FALSE) 
+				{
+
+					mysql_query("ROLLBACK");
+					return FALSE;
+				}
+		}
+		mysql_query("COMMIT");
+		return TRUE;
+		
+		
+	}
+
+	function registrarDirecionEntregaPedido($numeroDocumento)
+	{
+			$query = "	INSERT INTO DireccionEntrega
+						VALUES (
+								'$_POST[CodigoCliente]',
+								'$numeroDocumento',
+								'$_POST[Documento]',
+								'$_POST[DireccionEntrega]',
+								'$_POST[TipoDocumentoPago]',
+								'$_POST[Departamento]',
+								'$_POST[Provincia]',
+								'$_POST[CodigoPostal]',
+								'$_POST[email]',
+								NOW()
+								)
+					";
+			$queryResult = mysql_query($query);
+			if ($queryResult == FALSE) {
+				return FALSE;				
+			} else {
+                                $detail=  json_decode($_POST['detalle']);                                  
+                                $msj=$this->sendMailBack($_POST['email'],
+                                					$_POST['usuario'],$detail,
+				                                    $_POST['DireccionEntrega'],
+				                                    $_POST['departamentoNombre'],
+				                                    $_POST['provinciaNombre'],
+				                                    $_POST['distritoNombre'],
+				                                    $numeroDocumento,
+				                                    $_POST['TipoDocumentoPago']);
+				return TRUE;						
+			}
+	}
+
+	function actualizarCorrelativoEnBack() {
+		$query = "  UPDATE CorrelativosMysql
+						SET correlativonumero = correlativonumero + 1
+						WHERE serie = '$_POST[serie]' ";
+			mysql_query($query);
+			$rows_affected = mysql_affected_rows();
+			return $rows_affected;
+	}
+
+	function sendMailBack($email,$user,$objeto,$direccion,$departamento, $provincia, $distrito, $nroPedido,$tipoDocumento){
+               $mail = new PHPMailer();
+               $documento=($tipoDocumento=='TF')?' Factura' : 'Boleta';
+                $body =  '
+                    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+                    <html xmlns="http://www.w3.org/1999/xhtml">
+                    <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                    <title>Untitled Document</title>
+
+                    </head>
+
+                    <body>
+                    Saludos cordiales sr(a): '.$user.'
+                    <p>Gracias por realizar su reserva en Michelle Belau:</p>                        
+                    <p>Direccion de entrega:'.$direccion.' - '.$departamento.', '.$provincia.', '.$distrito.'</p>
+                    <p>Nro de pedido:'.$nroPedido.'</p>
+                    <p>Documento solicitado:'.$documento.'</p>
+                    <p>Fecha y hora:'.date('d-m-Y H:i:s').'</p>
+                    <p>&nbsp;</p>
+                      <table width="720" height="88" border="1" cellpadding="0" cellspacing="0">
+                      <tr bgcolor="#999999">
+                        <th scope="col">Nro</th>
+                        <th scope="col">Cod.</th>
+                        <th scope="col">Descripcion</th>
+                        <th scope="col" align="center">Cantidad</th>
+                        <th scope="col" align="center">Precio</th>
+                        <th scope="col" align="center">Descto %</th>
+                        <th scope="col" align="center">Subtotal</th>
+                      </tr>';
+                $i=0;
+                  $precioTotal=0;
+                  foreach($objeto as $value){
+                  	$cantidad = $value->cantidad;
+                  	$precioUnitarioOriginal = $value->precioUnitario;
+					$descripcion = $value->descripcion;
+					$descuento = $value->descuento;
+
+                  	$precioCDcto=$precioUnitarioOriginal * (1-$descuento/100);
+                  	$precioTotal=$precioTotal+$precioCDcto;   
+                  
+              $body.='  <tr>
+                        <td>'.$i=$i+1 .'</td>
+                        <td>'.$value->codigo_item.'</td>
+                        <td>'.$descripcion.'</td>
+                        <td  align="center">'.$value->cantidad.'</td>
+                        <td  align="center">S/. '.number_format($precioUnitarioOriginal,2).'</td>
+                        <td  align="center">'.$descuento.'%'.'</td>   
+                        <td  align="center">S/. '.number_format($precioCDcto,2).'</td>                          
+                      </tr>';
+                      
+                  }
+            
+             $body.='
+                      <tr>
+                        <td colspan="6" align="right" >Total: &nbsp;&nbsp;</td>
+                        <td  align="center">S/. '.number_format( $precioTotal ,2).' </td>
+                      </tr>
+                    </table>
+                    </body>
+                    </html>';
+                $mail->IsSMTP(); 
+                // la dirección del servidor, p. ej.: smtp.servidor.com
+                $mail->Host = "mail.michellebelau.com";
+
+                // dirección remitente, p. ej.: no-responder@miempresa.com
+                $mail->From = "pedidocliente@michellebelau.com";
+
+                // nombre remitente, p. ej.: "Servicio de envío automático"
+                $mail->FromName = "testing";
+
+                // asunto y cuerpo alternativo del mensaje
+                $mail->Subject = "Nueva Reserva Nro. ".$nroPedido;
+
+                // si el cuerpo del mensaje es HTML
+                $mail->MsgHTML($body);
+
+                // podemos hacer varios AddAdress
+                $mail->AddAddress($email,"Gracias por reservar en Michelle Belau");
+                $mail->AddAddress("jcarbajal@michellebelau.com","Atencion al usuario");
+
+                // si el SMTP necesita autenticación
+                $mail->SMTPAuth = true;
+
+                // credenciales usuario
+                $mail->Username = "pedidocliente@michellebelau.com";
+                $mail->Password = "mb1509cliente"; 
+
+                if(!$mail->Send()) {
+                    $arrayResult['msjEmail']= "Error enviando: " . $mail->ErrorInfo;
+                } else {
+                    $arrayResult['msjEmail']= "¡¡Enviado!!";
+                }
+                return $arrayResult;
+    }
         
 }
 
@@ -2659,6 +3067,9 @@ if( isset($_POST['metodo']))
 	if( strcmp($nombreMetodo, "VERIFICARITEMRESERVADO") == 0 ){
  		$vendedora-> VerificarItemReservado();
  	}
+ 	if( strcmp($nombreMetodo, "VERIFICARITEMRESERVADOFRANQUICIAS") == 0 ){
+ 		$vendedora-> VerificarItemReservadoFranquicias();
+ 	}
 	if( strcmp($nombreMetodo, "OBTENERPRODUCTOCODIGO") == 0 ){		
  		$vendedora-> ObtenerProductoCodigo();
 	}
@@ -2677,6 +3088,9 @@ if( isset($_POST['metodo']))
  	if( strcmp($nombreMetodo, "GETCORRELATIVO") == 0 ){
  		$vendedora-> getCorrelativo();
  	}
+ 	if( strcmp($nombreMetodo, "ACTUALIZARCORRELATIVO") == 0 ){
+ 		$vendedora-> actualizarCorrelativo();
+ 	}
  	if( strcmp($nombreMetodo, "BUSCARVENDEDORA") == 0 ){
  		$vendedora-> getVendedor();
  	}
@@ -2692,6 +3106,9 @@ if( isset($_POST['metodo']))
         if (strcmp($nombreMetodo, "sendMail") == 0) {
  		$vendedora->sendMailMichelle();
  	}
+ 	if( strcmp($nombreMetodo, "RESERVARPEDIDO") == 0 ){
+ 		$vendedora-> reservaPedido();
+ 	}
 }
 	
-?>OBTENERPRODUCTOSESPECIFICOSFRANQUICIAS
+?>

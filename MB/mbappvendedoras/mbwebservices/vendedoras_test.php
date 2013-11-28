@@ -34,18 +34,54 @@ class Vendedoras
 	function __destruct()
 	{}
 
+	function VerificarServicios() {
+
+		$host_name = '54.232.196.181';
+		$host_password = '123456';
+		$host_user = 'root';
+		$database_name = 'mbinterface';
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		if ($exists_database) 
+		{	
+			$query = "	SELECT *
+						FROM CorrelativosMysql
+						WHERE serie = '$_POST[serie]' ";
+			$query_resource = mysql_query($query);
+			if ($query_resource == FALSE) 
+			{
+				mysql_close($database_conn);
+				$this->sendResponse(500, "Error en el query.");	
+			}
+			else 
+			{
+				$query_row = mysql_fetch_array($query_resource);
+				$estado = $query_row['flag'];
+				if ($estado != 'A') {
+					$mensaje = $query_row['Mensaje'];						
+					mysql_close($database_conn);
+					$this->sendResponse(202, $mensaje);	
+				}
+			}
+		}
+		else 
+		{
+			$mysql_close($database_conn);
+			$this->sendResponse(500, "No existe la base de datos.");
+		}
+	}
 	
 	function ObtenerEstablecimientosPorMarca()
 	{
-			$host_name = '192.168.1.193';
-			$host_password = 'migramb';
-			$host_user = 'migra';
+			$host_name = '54.232.196.181';
+			$host_password = '123456';
+			$host_user = 'root';
 			$database_name = 'mbinterface';
 			
 			$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
 			$exists_database = mysql_select_db($database_name);
 			if ($exists_database) 
-			{	
+			{
 				$query = "	SELECT E.EstablecimientoCodigo, E.DescripcionLocal, E.DireccionComercial, E.almacendefault, E.UsuarioT, E.CentroCosto, E.TipoTienda, C.FlujodeCaja
 							FROM co_fiscalestablecimiento E, CO_ConceptoFacturacion C
 							WHERE E.EstablecimientoCodigo = CONCAT('0', C.ConceptoFacturacion) AND
@@ -135,6 +171,7 @@ class Vendedoras
 
 	function ObtenerFamiliasPorGrupoLinea()
 	{
+		
 		$host_name = '192.168.1.193';
 		$host_password = 'migramb';
 		$host_user = 'migra';
@@ -152,7 +189,7 @@ class Vendedoras
 						  EqAgpFam Eq
 						WHERE L.linea = Agp.linea
 						AND Eq.CodAgpFam = Agp.CodAgpFam
-						AND L.grupolinea = '$_POST[grupolinea]' ";
+						AND L.grupolinea = '$_POST[grupolinea]'  ";
 			$query_resource = mysql_query($query);
 
 			if ($query_resource == FALSE) 
@@ -1102,31 +1139,16 @@ class Vendedoras
 		
 		if ($exists_database) 
 		{			
-			$query = "  SELECT T1.tallacodigo, T1.color, T1.stockdisponible + T2.stockdisponible AS stockTotal
-						FROM 
-						(
-						SELECT I.tallacodigo, I.color, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
-												FROM
-													wh_itemmast I,
-													wh_itemalmacenlote A
-												WHERE
-													I.item = A.item AND
-													A.almacencodigo = '0001' AND
-													I.itempreciocodigo = '$_POST[Item]'
-						) T1,
-						(
-						SELECT I.tallacodigo, I.color, IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido) as stockdisponible
-												FROM
-													wh_itemmast I,
-													wh_itemalmacenlote A
-												WHERE
-													I.item = A.item AND
-													A.almacencodigo = '0031' AND
-													I.itempreciocodigo = '$_POST[Item]'
-						)T2
+			$query = "  SELECT I.tallacodigo, I.color, SUM(IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido)) as stockdisponible
+						FROM
+							wh_itemmast I,
+							wh_itemalmacenlote A
 						WHERE
-							T1.tallacodigo = T2.tallacodigo AND
-							T1.color = T2.color ";
+							I.item = A.item AND
+							(A.almacencodigo = '0001' OR A.almacencodigo = '0031') AND
+							I.itempreciocodigo = '$_POST[Item]'
+						GROUP BY I.tallacodigo, I.color
+					";
 								
 			$query_resource = mysql_query($query);
 
@@ -1145,7 +1167,7 @@ class Vendedoras
 									(
 										'Tallacodigo'=>$query_row['tallacodigo'],
 										'Colorcodigo'=>$query_row['color'],
-										'Stockdisponible'=>$query_row['stockdisponible']
+										'Stockdisponible'=>$query_row['stockTotal']
 									);
 				}
 				
@@ -1180,6 +1202,61 @@ class Vendedoras
 						WHERE
 							I.item = A.item AND
 							A.almacencodigo = '$_POST[EstablecimientoCodigo]' AND
+							I.Item = '$_POST[Item]' ";
+								
+			$query_resource = mysql_query($query);
+
+			if ($query_resource == FALSE) 
+			{
+				$query_result = array("StockLocal" => array());
+				mysql_close($database_conn);
+				$this->sendResponse("Error en el query.");	
+			} 
+			else 
+			{
+				$temp_result = array();
+				$precio = new Precio();
+				$descuento = $precio->getDescuento();
+				while ($query_row = mysql_fetch_array($query_resource)) 
+				{
+					$temp_array = array
+									(
+										'Stockdisponible'=>$query_row['stockdisponible'],
+										'Descuento' => $descuento
+									);
+				}
+				
+				mysql_close($database_conn);
+				$this->sendResponse(200, json_encode($temp_array));
+			}			
+		
+		} 
+		else 
+		{
+			$mysql_close($database_conn);
+			$this->sendResponse(500, "No existe la base de datos.");
+		}
+	}
+
+	function VerificarItemReservadoFranquicias()
+	{
+		$host_name = '192.168.1.193';
+		$host_password = 'migramb';
+		$host_user = 'migra';
+		$database_name = 'mbinterface';
+		
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		
+		if ($exists_database) 
+		{			
+			$query = "  SELECT SUM(IF(A.stockcomprometido IS NULL, A.stockactual, A.stockactual  - A.stockcomprometido)) as stockdisponible
+						FROM
+							wh_itemmast I,
+							wh_itemalmacenlote A
+						WHERE
+							I.item = A.item AND
+							(A.almacencodigo = '0001' OR A.almacencodigo = '0031') AND
 							I.Item = '$_POST[Item]' ";
 								
 			$query_resource = mysql_query($query);
@@ -1535,7 +1612,7 @@ class Vendedoras
 		{
 		
 		//$centroCosto = $this->getCentroCosto($_POST[EstablecimientoCodigo]);
-			if($correlativo != null && $correlativo > 0)
+			if($correlativo != null)
 			{	
 				$query = "  INSERT INTO co_documento (
                                 CompaniaSocio,
@@ -2188,21 +2265,52 @@ class Vendedoras
 		
 	}
 
+	function actualizarCorrelativo() {
+
+		$host_name = '54.232.196.181';
+		$host_password = '123456';
+		$host_user = 'root';
+		$database_name = 'mbinterface';
+
+		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
+		$exists_database = mysql_select_db($database_name);
+		
+		if ($exists_database) 
+		{
+			$query = "  UPDATE CorrelativosMysql
+						SET correlativonumero = correlativonumero + 1
+						WHERE serie = '$_POST[serie]' ";
+			mysql_query($query);
+			$rows_affected = mysql_affected_rows();
+			$result = array("state"=>$rows_affected);
+			mysql_close($database_conn);
+			$this->sendResponse(200, json_encode($result));
+		}
+		else 
+		{
+			$mysql_close($database_conn);
+		}	
+	}
+
 	function getCorrelativo()
 	{
-		$host_name = '192.168.1.193';
-		$host_password = 'migramb';
-		$host_user = 'migra';
+		$this->VerificarServicios();
+		$host_name = '54.232.196.181';
+		$host_password = '123456';
+		$host_user = 'root';
 		$database_name = 'mbinterface';
 		
 		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
 		$exists_database = mysql_select_db($database_name);
 		
 		if ($exists_database) 
-		{
+		{/*
 			$query = "  SELECT (correlativonumero + 1) AS correlativonumero
 						FROM CorrelativosMast
-						WHERE serie = 'COPE' ";
+						WHERE serie = 'COPE' ";*/
+			$query = "  SELECT serie, (correlativonumero + 1) AS correlativonumero
+						FROM CorrelativosMysql
+						WHERE serie = '$_POST[serie]' ";
 								
 			$query_resource = mysql_query($query);
 
@@ -2217,14 +2325,16 @@ class Vendedoras
 				while ($query_row = mysql_fetch_array($query_resource))
 				{
 					$correlativo = $query_row['correlativonumero'];
+					$serie = $query_row['serie'];
 				}
 				$size = strlen($correlativo);
-				if($size < 10)
+				if($size < 8)
 				{
-					$dif = 10 - $size;
-					for ($i=0; $i < $dif; $i++) { 
+					$dif = 8 - $size;
+					for ($i=0; $i < $dif; $i++) {
 						$correlativo = "0".$correlativo;
 					}
+					$correlativo = $serie.$correlativo;
 				}
 				mysql_close($database_conn);
 				return $correlativo;
@@ -2295,9 +2405,9 @@ class Vendedoras
 		
 	function getCodigoEstablecimiento($val)
 	{
-		$host_name = '192.168.1.193';
-		$host_password = 'migramb';
-		$host_user = 'migra';
+		$host_name = '54.232.196.181';
+		$host_password = '123456';
+		$host_user = 'root';
 		$database_name = 'mbinterface';
 		
 		$database_conn = mysql_connect($host_name, $host_user, $host_password) or die ('No se pudo establecer la conexi�n con la base de datos');
@@ -2549,7 +2659,8 @@ class Vendedoras
 
                     // podemos hacer varios AddAdress
                     //$mail->AddAddress("jcarbajal@michellebelau.com","Gracias por reservar en Michelle Belau");
-                    $mail->AddAddress("cesarynga@onlinestudioproductions.com","Gracias por reservar en Michelle Belau");
+                    //$mail->AddAddress("cesarynga@onlinestudioproductions.com","Gracias por reservar en Michelle Belau");
+                    $mail->AddAddress("kenyirodriguez@onlinestudioproductions.com","Gracias por reservar en Michelle Belau");
                     // $mail->AddAddress("jcarbajal@michellebelau.com","Atencion al usuario");
                     // si el SMTP necesita autenticación
                     $mail->SMTPAuth = true;
@@ -2651,6 +2762,9 @@ if( isset($_POST['metodo']))
 	if( strcmp($nombreMetodo, "VERIFICARITEMRESERVADO") == 0 ){
  		$vendedora-> VerificarItemReservado();
  	}
+ 	if( strcmp($nombreMetodo, "VERIFICARITEMRESERVADOFRANQUICIAS") == 0 ){
+ 		$vendedora-> VerificarItemReservadoFranquicias();
+ 	}
 	if( strcmp($nombreMetodo, "OBTENERPRODUCTOCODIGO") == 0 ){		
  		$vendedora-> ObtenerProductoCodigo();
 	}
@@ -2668,6 +2782,9 @@ if( isset($_POST['metodo']))
  	}
  	if( strcmp($nombreMetodo, "GETCORRELATIVO") == 0 ){
  		$vendedora-> getCorrelativo();
+ 	}
+ 	if( strcmp($nombreMetodo, "ACTUALIZARCORRELATIVO") == 0 ){
+ 		$vendedora-> actualizarCorrelativo();
  	}
  	if( strcmp($nombreMetodo, "BUSCARVENDEDORA") == 0 ){
  		$vendedora-> getVendedor();
